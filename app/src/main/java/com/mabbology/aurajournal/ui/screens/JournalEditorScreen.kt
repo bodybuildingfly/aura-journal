@@ -6,7 +6,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
 
@@ -14,11 +13,18 @@ import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
 @Composable
 fun JournalEditorScreen(
     navController: NavController,
-    viewModel: JournalViewModel = hiltViewModel()
+    viewModel: JournalViewModel // Now accepts the shared ViewModel
 ) {
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
     val editorState by viewModel.journalEditorState.collectAsState()
+
+    // This effect resets the editor state when the user leaves the screen
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.resetEditorState()
+        }
+    }
 
     // Navigate back when save is successful
     LaunchedEffect(editorState.isSaveSuccess) {

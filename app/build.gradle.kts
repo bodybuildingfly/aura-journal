@@ -65,7 +65,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
 
     // Appwrite
-    implementation("io.appwrite:sdk-for-android:8.2.2")
+    implementation("io.appwrite:sdk-for-android:8.1.0")
 
     // Jetpack Compose Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")

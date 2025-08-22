@@ -4,5 +4,6 @@ data class Journal(
     val id: String,
     val userId: String,
     val title: String,
-    val content: String
+    val content: String,
+    val createdAt: String
 )

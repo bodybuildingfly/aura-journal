@@ -1,7 +1,7 @@
 package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
-import com.mabbology.aurajournal.di.Constants
+import com.mabbology.aurajournal.di.AppwriteConstants
 import com.mabbology.aurajournal.domain.model.Journal
 import com.mabbology.aurajournal.domain.repository.JournalsRepository
 import io.appwrite.Client
@@ -28,8 +28,8 @@ class JournalsRepositoryImpl @Inject constructor(
             Log.d(TAG, "Fetching journal entries for userId: $userId")
 
             val response = databases.listDocuments(
-                databaseId = Constants.DATABASE_ID,
-                collectionId = Constants.JOURNALS_COLLECTION_ID,
+                databaseId = AppwriteConstants.DATABASE_ID,
+                collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
                 queries = listOf(Query.equal("userId", userId))
             )
             Log.d(TAG, "Successfully fetched ${response.documents.size} documents.")
@@ -38,7 +38,9 @@ class JournalsRepositoryImpl @Inject constructor(
                     id = document.id,
                     userId = document.data["userId"] as String,
                     title = document.data["title"] as String,
-                    content = document.data["content"] as String
+                    content = document.data["content"] as String,
+                    // Fetch the new timestamp from the document's metadata
+                    createdAt = document.createdAt
                 )
             }
             Result.success(journals)
@@ -55,8 +57,8 @@ class JournalsRepositoryImpl @Inject constructor(
             Log.d(TAG, "Creating journal entry for userId: $userId with title: $title")
 
             databases.createDocument(
-                databaseId = Constants.DATABASE_ID,
-                collectionId = Constants.JOURNALS_COLLECTION_ID,
+                databaseId = AppwriteConstants.DATABASE_ID,
+                collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
                 documentId = "unique()",
                 data = mapOf(
                     "userId" to userId,
@@ -73,6 +75,27 @@ class JournalsRepositoryImpl @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Error creating journal entry: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getJournalEntry(id: String): Result<Journal?> {
+        return try {
+            val document = databases.getDocument(
+                databaseId = AppwriteConstants.DATABASE_ID,
+                collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
+                documentId = id
+            )
+            val journal = Journal(
+                id = document.id,
+                userId = document.data["userId"] as String,
+                title = document.data["title"] as String,
+                content = document.data["content"] as String,
+                createdAt = document.createdAt
+            )
+            Result.success(journal)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching single journal entry: ${e.message}", e)
             Result.failure(e)
         }
     }

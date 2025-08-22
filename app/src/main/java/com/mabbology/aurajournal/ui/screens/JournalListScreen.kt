@@ -1,9 +1,7 @@
 package com.mabbology.aurajournal.ui.screens
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -14,16 +12,19 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.mabbology.aurajournal.domain.model.Journal
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JournalListScreen(
     navController: NavController,
-    viewModel: JournalViewModel = hiltViewModel()
+    viewModel: JournalViewModel
 ) {
     val journalListState by viewModel.journalListState.collectAsState()
 
@@ -59,22 +60,57 @@ fun JournalListScreen(
                     )
                 }
                 else -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         items(journalListState.journals) { journal ->
-                            ListItem(
-                                headlineContent = { Text(journal.title) },
-                                supportingContent = {
-                                    Text(
-                                        text = journal.content,
-                                        maxLines = 2
-                                    )
+                            JournalCard(
+                                journal = journal,
+                                onClick = {
+                                    navController.navigate("journalView/${journal.id}")
                                 }
                             )
-                            Divider()
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun JournalCard(journal: Journal, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = journal.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = formatTimestampList(journal.createdAt),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+private fun formatTimestampList(isoString: String): String {
+    return try {
+        val odt = OffsetDateTime.parse(isoString)
+        val formatter = DateTimeFormatter.ofPattern("MMMM d, yyyy")
+        odt.format(formatter)
+    } catch (e: Exception) {
+        "Invalid date"
     }
 }

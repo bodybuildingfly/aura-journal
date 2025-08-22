@@ -22,6 +22,12 @@ data class JournalEditorState(
     val isSaveSuccess: Boolean = false
 )
 
+data class SelectedJournalState(
+    val isLoading: Boolean = false,
+    val journal: Journal? = null,
+    val error: String? = null
+)
+
 @HiltViewModel
 class JournalViewModel @Inject constructor(
     private val journalsRepository: JournalsRepository
@@ -32,6 +38,9 @@ class JournalViewModel @Inject constructor(
 
     private val _journalEditorState = MutableStateFlow(JournalEditorState())
     val journalEditorState: StateFlow<JournalEditorState> = _journalEditorState
+
+    private val _selectedJournalState = MutableStateFlow(SelectedJournalState())
+    val selectedJournalState: StateFlow<SelectedJournalState> = _selectedJournalState
 
     init {
         getJournalEntries()
@@ -52,10 +61,28 @@ class JournalViewModel @Inject constructor(
         viewModelScope.launch {
             _journalEditorState.value = JournalEditorState(isSaving = true)
             val result = journalsRepository.createJournalEntry(title, content)
-            _journalEditorState.value = when {
-                result.isSuccess -> JournalEditorState(isSaveSuccess = true)
-                else -> JournalEditorState(error = result.exceptionOrNull()?.message)
+
+            if (result.isSuccess) {
+                getJournalEntries()
+                _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
+            } else {
+                _journalEditorState.value = JournalEditorState(error = result.exceptionOrNull()?.message)
             }
         }
+    }
+
+    fun getJournalById(id: String) {
+        viewModelScope.launch {
+            _selectedJournalState.value = SelectedJournalState(isLoading = true)
+            val result = journalsRepository.getJournalEntry(id)
+            _selectedJournalState.value = when {
+                result.isSuccess -> SelectedJournalState(journal = result.getOrNull())
+                else -> SelectedJournalState(error = result.exceptionOrNull()?.message)
+            }
+        }
+    }
+
+    fun resetEditorState() {
+        _journalEditorState.value = JournalEditorState()
     }
 }
