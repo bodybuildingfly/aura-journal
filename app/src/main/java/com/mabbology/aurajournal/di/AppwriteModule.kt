@@ -21,6 +21,6 @@ object AppwriteModule {
             .setEndpoint("https://appwrite.mabbology.com/v1")
             // Replace with your Appwrite Project ID
             .setProject("68a74008002bc24b5f1e")
-            .setSelfSigned(true) // Important for local development
+            //.setSelfSigned(true) // Important for local development
     }
 }

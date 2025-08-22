@@ -1,8 +1,10 @@
 package com.mabbology.aurajournal.di
 
 import com.mabbology.aurajournal.data.repository.AuthRepositoryImpl
+import com.mabbology.aurajournal.data.repository.JournalsRepositoryImpl
 import com.mabbology.aurajournal.data.repository.UserProfilesRepositoryImpl
 import com.mabbology.aurajournal.domain.repository.AuthRepository
+import com.mabbology.aurajournal.domain.repository.JournalsRepository
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import dagger.Binds
 import dagger.Module
@@ -25,4 +27,10 @@ abstract class RepositoryModule {
     abstract fun bindUserProfilesRepository(
         userProfilesRepositoryImpl: UserProfilesRepositoryImpl
     ): UserProfilesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindJournalsRepository(
+        journalsRepositoryImpl: JournalsRepositoryImpl
+    ): JournalsRepository
 }

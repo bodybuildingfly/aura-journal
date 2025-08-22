@@ -7,9 +7,6 @@ import io.appwrite.services.Databases
 import javax.inject.Inject
 import kotlin.collections.filter
 
-// Note: Replace "YOUR_DATABASE_ID" and "YOUR_USER_PROFILES_COLLECTION_ID"
-// with your actual IDs from your Appwrite project console.
-
 class UserProfilesRepositoryImpl @Inject constructor(
     private val client: Client
 ) : UserProfilesRepository {

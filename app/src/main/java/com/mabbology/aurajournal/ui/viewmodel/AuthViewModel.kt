@@ -20,8 +20,22 @@ class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository
 ) : ViewModel() {
 
-    private val _authState = MutableStateFlow(AuthState())
+    private val _authState = MutableStateFlow(AuthState(isLoading = true))
     val authState: StateFlow<AuthState> = _authState
+
+    init {
+        checkSession()
+    }
+
+    private fun checkSession() {
+        viewModelScope.launch {
+            val result = authRepository.checkSessionStatus()
+            _authState.value = when {
+                result.isSuccess -> AuthState(isAuthenticated = true, isLoading = false)
+                else -> AuthState(isAuthenticated = false, isLoading = false)
+            }
+        }
+    }
 
     fun register(email: String, password: String) {
         viewModelScope.launch {

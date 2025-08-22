@@ -11,6 +11,15 @@ class AuthRepositoryImpl @Inject constructor(
 
     private val account by lazy { Account(client) }
 
+    override suspend fun checkSessionStatus(): Result<Unit> {
+        return try {
+            account.get() // This call will succeed if the session is valid
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun register(email: String, password: String): Result<Unit> {
         return try {
             account.create(

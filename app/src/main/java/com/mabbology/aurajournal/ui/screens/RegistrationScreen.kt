@@ -1,9 +1,5 @@
 package com.mabbology.aurajournal.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +18,16 @@ fun RegistrationScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val authState by viewModel.authState.collectAsState()
+
+    // Navigate to the journal list screen upon successful authentication
+    LaunchedEffect(authState.isAuthenticated) {
+        if (authState.isAuthenticated) {
+            navController.navigate("journalList") {
+                // Clear the back stack so the user can't go back to the registration screen
+                popUpTo("login") { inclusive = true }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -52,10 +58,6 @@ fun RegistrationScreen(
 
         authState.error?.let {
             Text(text = it, color = MaterialTheme.colorScheme.error)
-        }
-
-        if (authState.isAuthenticated) {
-            // Navigate to the main screen
         }
     }
 }

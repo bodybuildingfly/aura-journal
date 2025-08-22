@@ -19,6 +19,16 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     val authState by viewModel.authState.collectAsState()
 
+    // Navigate to the journal list screen upon successful authentication
+    LaunchedEffect(authState.isAuthenticated) {
+        if (authState.isAuthenticated) {
+            navController.navigate("journalList") {
+                // Clear the back stack so the user can't go back to the login screen
+                popUpTo("login") { inclusive = true }
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -52,10 +62,6 @@ fun LoginScreen(
 
         authState.error?.let {
             Text(text = it, color = MaterialTheme.colorScheme.error)
-        }
-
-        if (authState.isAuthenticated) {
-            // Navigate to the main screen
         }
     }
 }
