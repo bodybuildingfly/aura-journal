@@ -7,11 +7,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -19,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.Journal
+import com.mabbology.aurajournal.ui.viewmodel.AuthViewModel
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -27,9 +29,11 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun JournalListScreen(
     navController: NavController,
-    viewModel: JournalViewModel
+    viewModel: JournalViewModel,
+    authViewModel: AuthViewModel
 ) {
     val journalListState by viewModel.journalListState.collectAsState()
+    var showMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -38,7 +42,40 @@ fun JournalListScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                ),
+                actions = {
+                    IconButton(onClick = { navController.navigate("connectionRequests") }) {
+                        Icon(
+                            imageVector = Icons.Outlined.People,
+                            contentDescription = "Connections"
+                        )
+                    }
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "More Options"
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Profile") },
+                            onClick = {
+                                showMenu = false
+                                navController.navigate("profile")
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Logout") },
+                            onClick = {
+                                showMenu = false
+                                authViewModel.logout()
+                            }
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -73,14 +110,13 @@ fun JournalListScreen(
                     ) {
                         items(
                             items = journalListState.journals,
-                            key = { journal -> journal.id } // Add a stable key for animations
+                            key = { journal -> journal.id }
                         ) { journal ->
                             JournalCard(
                                 journal = journal,
                                 onClick = {
                                     navController.navigate("journalView/${journal.id}")
                                 },
-                                // Updated to the new, non-deprecated modifier
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -120,7 +156,7 @@ fun EmptyJournalView() {
 @Composable
 fun JournalCard(journal: Journal, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier // Apply modifier here
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -132,11 +168,22 @@ fun JournalCard(journal: Journal, onClick: () -> Unit, modifier: Modifier = Modi
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = formatTimestampList(journal.createdAt),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = formatTimestampList(journal.createdAt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (journal.type == "shared") {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.Default.People,
+                        contentDescription = "Shared",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -19,12 +20,11 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     val authState by viewModel.authState.collectAsState()
 
-    // Navigate to the journal list screen upon successful authentication
     LaunchedEffect(authState.isAuthenticated) {
         if (authState.isAuthenticated) {
-            navController.navigate("journalList") {
-                // Clear the back stack so the user can't go back to the login screen
-                popUpTo("login") { inclusive = true }
+            // Corrected to navigate to the nested graph's route
+            navController.navigate("journal_flow") {
+                popUpTo("auth_flow") { inclusive = true }
             }
         }
     }
@@ -45,7 +45,8 @@ fun LoginScreen(
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Password") }
+            label = { Text("Password") },
+            visualTransformation = PasswordVisualTransformation()
         )
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = { viewModel.login(email, password) }) {

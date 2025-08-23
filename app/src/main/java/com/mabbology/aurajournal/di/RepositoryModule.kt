@@ -1,9 +1,11 @@
 package com.mabbology.aurajournal.di
 
 import com.mabbology.aurajournal.data.repository.AuthRepositoryImpl
+import com.mabbology.aurajournal.data.repository.ConnectionRequestsRepositoryImpl
 import com.mabbology.aurajournal.data.repository.JournalsRepositoryImpl
 import com.mabbology.aurajournal.data.repository.UserProfilesRepositoryImpl
 import com.mabbology.aurajournal.domain.repository.AuthRepository
+import com.mabbology.aurajournal.domain.repository.ConnectionRequestsRepository
 import com.mabbology.aurajournal.domain.repository.JournalsRepository
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import dagger.Binds
@@ -33,4 +35,10 @@ abstract class RepositoryModule {
     abstract fun bindJournalsRepository(
         journalsRepositoryImpl: JournalsRepositoryImpl
     ): JournalsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindConnectionRequestsRepository(
+        connectionRequestsRepositoryImpl: ConnectionRequestsRepositoryImpl
+    ): ConnectionRequestsRepository
 }

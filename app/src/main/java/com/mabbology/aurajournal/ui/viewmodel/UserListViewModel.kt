@@ -3,6 +3,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mabbology.aurajournal.domain.model.UserProfile
+import com.mabbology.aurajournal.domain.repository.ConnectionRequestsRepository
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,12 +14,14 @@ import javax.inject.Inject
 data class UserListState(
     val isLoading: Boolean = false,
     val users: List<UserProfile> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    val requestSentMessage: String? = null
 )
 
 @HiltViewModel
 class UserListViewModel @Inject constructor(
-    private val userProfilesRepository: UserProfilesRepository
+    private val userProfilesRepository: UserProfilesRepository,
+    private val connectionRequestsRepository: ConnectionRequestsRepository
 ) : ViewModel() {
 
     private val _userListState = MutableStateFlow(UserListState())
@@ -41,11 +44,22 @@ class UserListViewModel @Inject constructor(
 
     fun searchUserProfiles(query: String) {
         viewModelScope.launch {
-            _userListState.value = UserListState(isLoading = true)
+            _userListState.value = _userListState.value.copy(isLoading = true)
             val result = userProfilesRepository.searchUserProfiles(query)
             _userListState.value = when {
-                result.isSuccess -> UserListState(users = result.getOrNull() ?: emptyList())
-                else -> UserListState(error = result.exceptionOrNull()?.message)
+                result.isSuccess -> _userListState.value.copy(isLoading = false, users = result.getOrNull() ?: emptyList())
+                else -> _userListState.value.copy(isLoading = false, error = result.exceptionOrNull()?.message)
+            }
+        }
+    }
+
+    fun sendConnectionRequest(recipientId: String) {
+        viewModelScope.launch {
+            val result = connectionRequestsRepository.sendConnectionRequest(recipientId)
+            if (result.isSuccess) {
+                _userListState.value = _userListState.value.copy(requestSentMessage = "Request sent!")
+            } else {
+                _userListState.value = _userListState.value.copy(error = "Failed to send request.")
             }
         }
     }

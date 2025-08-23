@@ -1,6 +1,7 @@
 package com.mabbology.aurajournal.ui.screens
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -21,6 +22,16 @@ fun NavGraph(
     val navController = rememberNavController()
     val authState by authViewModel.authState.collectAsState()
 
+    LaunchedEffect(authState.isAuthenticated) {
+        if (!authState.isAuthenticated && !authState.isLoading) {
+            navController.navigate("auth_flow") {
+                popUpTo(navController.graph.id) {
+                    inclusive = true
+                }
+            }
+        }
+    }
+
     val startDestination = if (authState.isAuthenticated) "journal_flow" else "auth_flow"
 
     NavHost(navController = navController, startDestination = startDestination) {
@@ -39,14 +50,40 @@ fun NavGraph(
                     navController.getBackStackEntry("journal_flow")
                 }
                 val journalViewModel: JournalViewModel = hiltViewModel(parentEntry)
-                JournalListScreen(navController = navController, viewModel = journalViewModel)
+                JournalListScreen(
+                    navController = navController,
+                    viewModel = journalViewModel,
+                    authViewModel = authViewModel
+                )
             }
+            // Route for creating a NEW entry
             composable("journalEditor") { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry("journal_flow")
                 }
                 val journalViewModel: JournalViewModel = hiltViewModel(parentEntry)
-                JournalEditorScreen(navController = navController, viewModel = journalViewModel)
+                JournalEditorScreen(
+                    navController = navController,
+                    viewModel = journalViewModel,
+                    journalId = null
+                )
+            }
+            // Route for EDITING an existing entry
+            composable(
+                route = "journalEditor/{journalId}",
+                arguments = listOf(navArgument("journalId") {
+                    type = NavType.StringType
+                })
+            ) { backStackEntry ->
+                val parentEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry("journal_flow")
+                }
+                val journalViewModel: JournalViewModel = hiltViewModel(parentEntry)
+                JournalEditorScreen(
+                    navController = navController,
+                    viewModel = journalViewModel,
+                    journalId = backStackEntry.arguments?.getString("journalId")
+                )
             }
             composable(
                 route = "journalView/{journalId}",
@@ -61,6 +98,15 @@ fun NavGraph(
                     viewModel = journalViewModel,
                     journalId = backStackEntry.arguments?.getString("journalId")
                 )
+            }
+            composable("connectionRequests") {
+                ConnectionRequestsScreen(navController = navController)
+            }
+            composable("userList") {
+                UserListScreen(navController = navController)
+            }
+            composable("profile") {
+                ProfileScreen(navController = navController)
             }
         }
     }

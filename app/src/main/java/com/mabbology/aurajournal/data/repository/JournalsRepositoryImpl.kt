@@ -27,10 +27,18 @@ class JournalsRepositoryImpl @Inject constructor(
             val userId = user.id
             Log.d(TAG, "Fetching journal entries for userId: $userId")
 
+            // Fetch journals where the user is the author OR the partner
             val response = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
-                queries = listOf(Query.equal("userId", userId))
+                queries = listOf(
+                    Query.or(
+                        listOf(
+                            Query.equal("userId", userId),
+                            Query.equal("partnerId", userId)
+                        )
+                    )
+                )
             )
             Log.d(TAG, "Successfully fetched ${response.documents.size} documents.")
             val journals = response.documents.map { document ->
@@ -39,8 +47,9 @@ class JournalsRepositoryImpl @Inject constructor(
                     userId = document.data["userId"] as String,
                     title = document.data["title"] as String,
                     content = document.data["content"] as String,
-                    // Fetch the new timestamp from the document's metadata
-                    createdAt = document.createdAt
+                    createdAt = document.createdAt,
+                    type = document.data["type"] as String,
+                    partnerId = document.data["partnerId"] as? String
                 )
             }
             Result.success(journals)
@@ -50,31 +59,45 @@ class JournalsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun createJournalEntry(title: String, content: String): Result<Unit> {
+    override suspend fun createJournalEntry(title: String, content: String, type: String, partnerId: String?): Result<Unit> {
         return try {
             val user = account.get()
             val userId = user.id
-            Log.d(TAG, "Creating journal entry for userId: $userId with title: $title")
+
+            val data = mutableMapOf<String, Any>(
+                "userId" to userId,
+                "title" to title,
+                "content" to content,
+                "type" to type
+            )
+            partnerId?.let { data["partnerId"] = it }
+
+            val permissions = if (type == "shared" && partnerId != null) {
+                listOf(
+                    Permission.read(Role.user(userId)),
+                    Permission.read(Role.user(partnerId)),
+                    Permission.update(Role.user(userId)),
+                    Permission.update(Role.user(partnerId)),
+                    Permission.delete(Role.user(userId)),
+                    Permission.delete(Role.user(partnerId))
+                )
+            } else {
+                listOf(
+                    Permission.read(Role.user(userId)),
+                    Permission.update(Role.user(userId)),
+                    Permission.delete(Role.user(userId))
+                )
+            }
 
             databases.createDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
                 documentId = "unique()",
-                data = mapOf(
-                    "userId" to userId,
-                    "title" to title,
-                    "content" to content
-                ),
-                permissions = listOf(
-                    Permission.read(Role.user(userId)),
-                    Permission.update(Role.user(userId)),
-                    Permission.delete(Role.user(userId)),
-                )
+                data = data,
+                permissions = permissions
             )
-            Log.d(TAG, "Successfully created journal entry.")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Error creating journal entry: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -91,11 +114,43 @@ class JournalsRepositoryImpl @Inject constructor(
                 userId = document.data["userId"] as String,
                 title = document.data["title"] as String,
                 content = document.data["content"] as String,
-                createdAt = document.createdAt
+                createdAt = document.createdAt,
+                type = document.data["type"] as String,
+                partnerId = document.data["partnerId"] as? String
             )
             Result.success(journal)
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching single journal entry: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateJournalEntry(id: String, title: String, content: String): Result<Unit> {
+        return try {
+            databases.updateDocument(
+                databaseId = AppwriteConstants.DATABASE_ID,
+                collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
+                documentId = id,
+                data = mapOf(
+                    "title" to title,
+                    "content" to content
+                )
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteJournalEntry(id: String): Result<Unit> {
+        return try {
+            databases.deleteDocument(
+                databaseId = AppwriteConstants.DATABASE_ID,
+                collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
+                documentId = id
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }

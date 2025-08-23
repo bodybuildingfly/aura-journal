@@ -37,10 +37,10 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun register(email: String, password: String) {
+    fun register(email: String, password: String, name: String) {
         viewModelScope.launch {
             _authState.value = AuthState(isLoading = true)
-            val result = authRepository.register(email, password)
+            val result = authRepository.register(email, password, name)
             _authState.value = when {
                 result.isSuccess -> AuthState(isAuthenticated = true)
                 else -> AuthState(error = result.exceptionOrNull()?.message)
@@ -56,6 +56,13 @@ class AuthViewModel @Inject constructor(
                 result.isSuccess -> AuthState(isAuthenticated = true)
                 else -> AuthState(error = result.exceptionOrNull()?.message)
             }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            authRepository.logout()
+            _authState.value = AuthState(isAuthenticated = false)
         }
     }
 }

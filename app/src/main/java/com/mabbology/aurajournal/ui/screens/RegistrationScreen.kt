@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -15,16 +16,16 @@ fun RegistrationScreen(
     navController: NavController,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
+    var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val authState by viewModel.authState.collectAsState()
 
-    // Navigate to the journal list screen upon successful authentication
     LaunchedEffect(authState.isAuthenticated) {
         if (authState.isAuthenticated) {
-            navController.navigate("journalList") {
-                // Clear the back stack so the user can't go back to the registration screen
-                popUpTo("login") { inclusive = true }
+            // Corrected to navigate to the nested graph's route
+            navController.navigate("journal_flow") {
+                popUpTo("auth_flow") { inclusive = true }
             }
         }
     }
@@ -37,6 +38,12 @@ fun RegistrationScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Display Name") }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") }
@@ -45,10 +52,11 @@ fun RegistrationScreen(
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Password") }
+            label = { Text("Password") },
+            visualTransformation = PasswordVisualTransformation()
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { viewModel.register(email, password) }) {
+        Button(onClick = { viewModel.register(email, password, name) }) {
             Text("Register")
         }
 

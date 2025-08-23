@@ -7,6 +7,7 @@ import com.mabbology.aurajournal.domain.repository.JournalsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -25,7 +26,8 @@ data class JournalEditorState(
 data class SelectedJournalState(
     val isLoading: Boolean = false,
     val journal: Journal? = null,
-    val error: String? = null
+    val error: String? = null,
+    val isDeleted: Boolean = false
 )
 
 @HiltViewModel
@@ -57,16 +59,41 @@ class JournalViewModel @Inject constructor(
         }
     }
 
-    fun createJournalEntry(title: String, content: String) {
+    fun createJournalEntry(title: String, content: String, type: String, partnerId: String?) {
         viewModelScope.launch {
             _journalEditorState.value = JournalEditorState(isSaving = true)
-            val result = journalsRepository.createJournalEntry(title, content)
+            val result = journalsRepository.createJournalEntry(title, content, type, partnerId)
 
             if (result.isSuccess) {
                 getJournalEntries()
                 _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
             } else {
                 _journalEditorState.value = JournalEditorState(error = result.exceptionOrNull()?.message)
+            }
+        }
+    }
+
+    fun updateJournalEntry(id: String, title: String, content: String) {
+        viewModelScope.launch {
+            _journalEditorState.value = JournalEditorState(isSaving = true)
+            val result = journalsRepository.updateJournalEntry(id, title, content)
+            if (result.isSuccess) {
+                getJournalEntries()
+                _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
+            } else {
+                _journalEditorState.value = JournalEditorState(error = result.exceptionOrNull()?.message)
+            }
+        }
+    }
+
+    fun deleteJournalEntry(id: String) {
+        viewModelScope.launch {
+            val result = journalsRepository.deleteJournalEntry(id)
+            if (result.isSuccess) {
+                getJournalEntries()
+                _selectedJournalState.update { it.copy(isDeleted = true) }
+            } else {
+                // You could add error handling here if needed
             }
         }
     }
@@ -84,5 +111,9 @@ class JournalViewModel @Inject constructor(
 
     fun resetEditorState() {
         _journalEditorState.value = JournalEditorState()
+    }
+
+    fun onDeletionHandled() {
+        _selectedJournalState.update { it.copy(isDeleted = false) }
     }
 }

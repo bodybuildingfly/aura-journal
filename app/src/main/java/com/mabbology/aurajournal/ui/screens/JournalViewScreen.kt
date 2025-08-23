@@ -5,11 +5,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -25,11 +24,43 @@ fun JournalViewScreen(
     journalId: String?
 ) {
     val selectedJournalState by viewModel.selectedJournalState.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(journalId) {
         if (journalId != null) {
             viewModel.getJournalById(journalId)
         }
+    }
+
+    // This effect now correctly handles the one-time navigation event
+    LaunchedEffect(selectedJournalState.isDeleted) {
+        if (selectedJournalState.isDeleted) {
+            navController.popBackStack()
+            viewModel.onDeletionHandled() // Reset the flag after navigating
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Journal Entry") },
+            text = { Text("Are you sure you want to permanently delete this entry?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        journalId?.let { viewModel.deleteJournalEntry(it) }
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -42,6 +73,19 @@ fun JournalViewScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        // Pass the non-nullable journalId to the editor
+                        journalId?.let { id ->
+                            navController.navigate("journalEditor/$id")
+                        }
+                    }) {
+                        Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit")
+                    }
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete")
                     }
                 }
             )
@@ -70,7 +114,6 @@ fun JournalViewScreen(
     }
 }
 
-// Helper function to format the ISO 8601 timestamp from Appwrite
 private fun formatTimestamp(isoString: String): String {
     return try {
         val odt = OffsetDateTime.parse(isoString)
