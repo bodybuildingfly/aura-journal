@@ -1,13 +1,7 @@
 package com.mabbology.aurajournal.di
 
-import com.mabbology.aurajournal.data.repository.AuthRepositoryImpl
-import com.mabbology.aurajournal.data.repository.ConnectionRequestsRepositoryImpl
-import com.mabbology.aurajournal.data.repository.JournalsRepositoryImpl
-import com.mabbology.aurajournal.data.repository.UserProfilesRepositoryImpl
-import com.mabbology.aurajournal.domain.repository.AuthRepository
-import com.mabbology.aurajournal.domain.repository.ConnectionRequestsRepository
-import com.mabbology.aurajournal.domain.repository.JournalsRepository
-import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
+import com.mabbology.aurajournal.data.repository.*
+import com.mabbology.aurajournal.domain.repository.*
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -20,25 +14,25 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindAuthRepository(
-        authRepositoryImpl: AuthRepositoryImpl
-    ): AuthRepository
+    abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
 
     @Binds
     @Singleton
-    abstract fun bindUserProfilesRepository(
-        userProfilesRepositoryImpl: UserProfilesRepositoryImpl
-    ): UserProfilesRepository
+    abstract fun bindUserProfilesRepository(impl: UserProfilesRepositoryImpl): UserProfilesRepository
 
     @Binds
     @Singleton
-    abstract fun bindJournalsRepository(
-        journalsRepositoryImpl: JournalsRepositoryImpl
-    ): JournalsRepository
+    abstract fun bindJournalsRepository(impl: JournalsRepositoryImpl): JournalsRepository
 
     @Binds
     @Singleton
-    abstract fun bindConnectionRequestsRepository(
-        connectionRequestsRepositoryImpl: ConnectionRequestsRepositoryImpl
-    ): ConnectionRequestsRepository
+    abstract fun bindConnectionRequestsRepository(impl: ConnectionRequestsRepositoryImpl): ConnectionRequestsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNotesRepository(impl: NotesRepositoryImpl): NotesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindJournalAssignmentsRepository(impl: JournalAssignmentsRepositoryImpl): JournalAssignmentsRepository
 }

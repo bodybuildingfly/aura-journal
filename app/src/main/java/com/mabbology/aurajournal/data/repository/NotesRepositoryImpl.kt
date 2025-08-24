@@ -3,8 +3,8 @@ package com.mabbology.aurajournal.data.repository
 import android.util.Log
 import com.google.gson.Gson
 import com.mabbology.aurajournal.di.AppwriteConstants
-import com.mabbology.aurajournal.domain.model.Journal
-import com.mabbology.aurajournal.domain.repository.JournalsRepository
+import com.mabbology.aurajournal.domain.model.Note
+import com.mabbology.aurajournal.domain.repository.NotesRepository
 import io.appwrite.Client
 import io.appwrite.Permission
 import io.appwrite.Query
@@ -14,56 +14,55 @@ import io.appwrite.services.Databases
 import io.appwrite.services.Functions
 import javax.inject.Inject
 
-private const val TAG = "JournalsRepository"
+private const val TAG = "NotesRepository"
 
-class JournalsRepositoryImpl @Inject constructor(
+class NotesRepositoryImpl @Inject constructor(
     private val client: Client
-) : JournalsRepository {
+) : NotesRepository {
 
     private val databases by lazy { Databases(client) }
     private val account by lazy { Account(client) }
     private val functions by lazy { Functions(client) }
 
-    override suspend fun getJournalEntries(): Result<List<Journal>> {
+    override suspend fun getNotes(): Result<List<Note>> {
         return try {
             val user = account.get()
-            val userId = user.id
             val response = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
+                collectionId = AppwriteConstants.NOTES_COLLECTION_ID,
                 queries = listOf(
                     Query.or(
                         listOf(
-                            Query.equal("userId", userId),
-                            Query.equal("partnerId", userId)
+                            Query.equal("ownerId", user.id),
+                            Query.equal("partnerId", user.id)
                         )
                     )
                 )
             )
-            val journals = response.documents.map { document ->
-                Journal(
+            val notes = response.documents.map { document ->
+                Note(
                     id = document.id,
-                    userId = document.data["userId"] as String,
+                    ownerId = document.data["ownerId"] as String,
+                    partnerId = document.data["partnerId"] as? String,
                     title = document.data["title"] as String,
                     content = document.data["content"] as String,
-                    createdAt = document.createdAt,
-                    type = document.data["type"] as String,
-                    partnerId = document.data["partnerId"] as? String
+                    type = document.data["type"] as String
                 )
             }
-            Result.success(journals)
+            Result.success(notes)
         } catch (e: Exception) {
+            Log.e(TAG, "Error fetching notes: ${e.message}", e)
             Result.failure(e)
         }
     }
 
-    override suspend fun createJournalEntry(title: String, content: String, type: String, partnerId: String?): Result<String> {
+    override suspend fun createNote(title: String, content: String, type: String, partnerId: String?): Result<Unit> {
         return try {
             val user = account.get()
             val ownerId = user.id
 
             val documentData = mutableMapOf<String, Any>(
-                "userId" to ownerId,
+                "ownerId" to ownerId,
                 "title" to title,
                 "content" to content,
                 "type" to type
@@ -71,6 +70,7 @@ class JournalsRepositoryImpl @Inject constructor(
             partnerId?.let { documentData["partnerId"] = it }
 
             if (type == "shared" && partnerId != null) {
+                // Use the server function for shared entries
                 val permissions = listOf(
                     Permission.read(Role.user(ownerId)),
                     Permission.read(Role.user(partnerId)),
@@ -81,7 +81,7 @@ class JournalsRepositoryImpl @Inject constructor(
                 )
                 val payload = Gson().toJson(mapOf(
                     "databaseId" to AppwriteConstants.DATABASE_ID,
-                    "collectionId" to AppwriteConstants.JOURNALS_COLLECTION_ID,
+                    "collectionId" to AppwriteConstants.NOTES_COLLECTION_ID,
                     "documentData" to documentData,
                     "permissions" to permissions
                 ))
@@ -89,13 +89,11 @@ class JournalsRepositoryImpl @Inject constructor(
                     functionId = AppwriteConstants.CREATE_SHARED_DOCUMENT_FUNCTION_ID,
                     body = payload
                 )
-                // Since the function doesn't return the new document, we can't return its ID.
-                // We'll return a success indicator instead.
-                Result.success("success")
             } else {
-                val newDocument = databases.createDocument(
+                // Create personal entries directly
+                databases.createDocument(
                     databaseId = AppwriteConstants.DATABASE_ID,
-                    collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
+                    collectionId = AppwriteConstants.NOTES_COLLECTION_ID,
                     documentId = "unique()",
                     data = documentData,
                     permissions = listOf(
@@ -104,40 +102,40 @@ class JournalsRepositoryImpl @Inject constructor(
                         Permission.delete(Role.user(ownerId))
                     )
                 )
-                Result.success(newDocument.id)
             }
+            Result.success(Unit)
         } catch (e: Exception) {
+            Log.e(TAG, "Error creating note: ${e.message}", e)
             Result.failure(e)
         }
     }
 
-    override suspend fun getJournalEntry(id: String): Result<Journal?> {
+    override suspend fun getNote(id: String): Result<Note?> {
         return try {
             val document = databases.getDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
+                collectionId = AppwriteConstants.NOTES_COLLECTION_ID,
                 documentId = id
             )
-            val journal = Journal(
+            val note = Note(
                 id = document.id,
-                userId = document.data["userId"] as String,
+                ownerId = document.data["ownerId"] as String,
+                partnerId = document.data["partnerId"] as? String,
                 title = document.data["title"] as String,
                 content = document.data["content"] as String,
-                createdAt = document.createdAt,
-                type = document.data["type"] as String,
-                partnerId = document.data["partnerId"] as? String
+                type = document.data["type"] as String
             )
-            Result.success(journal)
+            Result.success(note)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    override suspend fun updateJournalEntry(id: String, title: String, content: String): Result<Unit> {
+    override suspend fun updateNote(id: String, title: String, content: String): Result<Unit> {
         return try {
             databases.updateDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
+                collectionId = AppwriteConstants.NOTES_COLLECTION_ID,
                 documentId = id,
                 data = mapOf(
                     "title" to title,
@@ -150,11 +148,11 @@ class JournalsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteJournalEntry(id: String): Result<Unit> {
+    override suspend fun deleteNote(id: String): Result<Unit> {
         return try {
             databases.deleteDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
+                collectionId = AppwriteConstants.NOTES_COLLECTION_ID,
                 documentId = id
             )
             Result.success(Unit)

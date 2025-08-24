@@ -11,23 +11,21 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.ui.viewmodel.ConnectionRequestsViewModel
-import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
+import com.mabbology.aurajournal.ui.viewmodel.NoteViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun JournalEditorScreen(
+fun NoteEditorScreen(
     navController: NavController,
-    viewModel: JournalViewModel,
+    viewModel: NoteViewModel,
     connectionViewModel: ConnectionRequestsViewModel = hiltViewModel(),
-    journalId: String? = null,
-    assignmentId: String? = null,
-    prompt: String? = null
+    noteId: String? = null
 ) {
-    val editorState by viewModel.journalEditorState.collectAsState()
-    val selectedJournalState by viewModel.selectedJournalState.collectAsState()
+    val editorState by viewModel.noteEditorState.collectAsState()
+    val selectedNoteState by viewModel.selectedNoteState.collectAsState()
     val connectionState by connectionViewModel.state.collectAsState()
 
-    var title by remember { mutableStateOf(prompt ?: "") }
+    var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
     var isShared by remember { mutableStateOf(false) }
 
@@ -36,14 +34,14 @@ fun JournalEditorScreen(
             ?: connectionState.outgoingRequests.find { it.status == "approved" }?.recipientId
     }
 
-    LaunchedEffect(journalId) {
-        if (journalId != null) {
-            viewModel.getJournalById(journalId)
+    LaunchedEffect(noteId) {
+        if (noteId != null) {
+            viewModel.getNoteById(noteId)
         }
     }
 
-    LaunchedEffect(selectedJournalState.journal) {
-        selectedJournalState.journal?.let {
+    LaunchedEffect(selectedNoteState.note) {
+        selectedNoteState.note?.let {
             title = it.title
             content = it.content
             isShared = it.type == "shared"
@@ -65,13 +63,10 @@ fun JournalEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (journalId == null) "New Entry" else "Edit Entry") },
+                title = { Text(if (noteId == null) "New Note" else "Edit Note") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -86,7 +81,7 @@ fun JournalEditorScreen(
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("Title / Prompt") },
+                label = { Text("Title") },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -100,7 +95,7 @@ fun JournalEditorScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (partnerId != null && journalId == null) {
+            if (partnerId != null && noteId == null) { // Only show for new entries if connected
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.align(Alignment.Start)
@@ -113,18 +108,13 @@ fun JournalEditorScreen(
 
             Button(
                 onClick = {
-                    when {
-                        assignmentId != null -> {
-                            viewModel.completeAssignment(assignmentId, title, content, partnerId)
-                        }
-                        journalId != null -> {
-                            viewModel.updateJournalEntry(journalId, title, content)
-                        }
-                        else -> {
-                            val type = if (isShared && partnerId != null) "shared" else "personal"
-                            val finalPartnerId = if (type == "shared") partnerId else null
-                            viewModel.createJournalEntry(title, content, type, finalPartnerId)
-                        }
+                    val type = if (isShared && partnerId != null) "shared" else "personal"
+                    val finalPartnerId = if (type == "shared") partnerId else null
+
+                    if (noteId == null) {
+                        viewModel.createNote(title, content, type, finalPartnerId)
+                    } else {
+                        viewModel.updateNote(noteId, title, content)
                     }
                 },
                 modifier = Modifier.align(Alignment.End),

@@ -3,6 +3,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mabbology.aurajournal.domain.model.Journal
+import com.mabbology.aurajournal.domain.repository.JournalAssignmentsRepository
 import com.mabbology.aurajournal.domain.repository.JournalsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +33,8 @@ data class SelectedJournalState(
 
 @HiltViewModel
 class JournalViewModel @Inject constructor(
-    private val journalsRepository: JournalsRepository
+    private val journalsRepository: JournalsRepository,
+    private val assignmentsRepository: JournalAssignmentsRepository
 ) : ViewModel() {
 
     private val _journalListState = MutableStateFlow(JournalListState())
@@ -63,12 +65,26 @@ class JournalViewModel @Inject constructor(
         viewModelScope.launch {
             _journalEditorState.value = JournalEditorState(isSaving = true)
             val result = journalsRepository.createJournalEntry(title, content, type, partnerId)
-
             if (result.isSuccess) {
                 getJournalEntries()
                 _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
             } else {
                 _journalEditorState.value = JournalEditorState(error = result.exceptionOrNull()?.message)
+            }
+        }
+    }
+
+    fun completeAssignment(assignmentId: String, title: String, content: String, partnerId: String?) {
+        viewModelScope.launch {
+            _journalEditorState.value = JournalEditorState(isSaving = true)
+            val journalResult = journalsRepository.createJournalEntry(title, content, "shared", partnerId)
+            if(journalResult.isSuccess) {
+                val newJournalId = journalResult.getOrThrow()
+                assignmentsRepository.completeAssignment(assignmentId, newJournalId)
+                getJournalEntries()
+                _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
+            } else {
+                _journalEditorState.value = JournalEditorState(error = journalResult.exceptionOrNull()?.message)
             }
         }
     }
@@ -92,8 +108,6 @@ class JournalViewModel @Inject constructor(
             if (result.isSuccess) {
                 getJournalEntries()
                 _selectedJournalState.update { it.copy(isDeleted = true) }
-            } else {
-                // You could add error handling here if needed
             }
         }
     }

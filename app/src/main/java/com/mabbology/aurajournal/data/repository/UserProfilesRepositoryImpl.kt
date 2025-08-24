@@ -32,7 +32,8 @@ class UserProfilesRepositoryImpl @Inject constructor(
                     UserProfile(
                         userId = document.data["userId"] as String,
                         displayName = document.data["displayName"] as String,
-                        avatarUrl = document.data["avatarUrl"] as? String
+                        avatarUrl = document.data["avatarUrl"] as? String,
+                        role = document.data["role"] as? String
                     )
                 }
                 .filter { it.userId != currentUser.id }
@@ -95,7 +96,8 @@ class UserProfilesRepositoryImpl @Inject constructor(
             val userProfile = UserProfile(
                 userId = document.data["userId"] as String,
                 displayName = document.data["displayName"] as String,
-                avatarUrl = document.data["avatarUrl"] as? String
+                avatarUrl = document.data["avatarUrl"] as? String,
+                role = document.data["role"] as? String
             )
             Result.success(userProfile)
         } catch (e: Exception) {
@@ -113,7 +115,8 @@ class UserProfilesRepositoryImpl @Inject constructor(
             val userProfile = UserProfile(
                 userId = document.data["userId"] as String,
                 displayName = document.data["displayName"] as String,
-                avatarUrl = document.data["avatarUrl"] as? String
+                avatarUrl = document.data["avatarUrl"] as? String,
+                role = document.data["role"] as? String
             )
             Result.success(userProfile)
         } catch (e: Exception) {

@@ -24,10 +24,13 @@ class ConnectionRequestsRepositoryImpl @Inject constructor(
     private val account by lazy { Account(client) }
     private val functions by lazy { Functions(client) }
 
-    override suspend fun sendConnectionRequest(recipientId: String): Result<Unit> {
+    override suspend fun sendConnectionRequest(recipientId: String, role: String): Result<Unit> {
         return try {
-            Log.d(TAG, "Executing create-connection-request function for recipient: $recipientId")
-            val payload = Gson().toJson(mapOf("recipientId" to recipientId))
+            Log.d(TAG, "Executing create-connection-request function for recipient: $recipientId with role: $role")
+            val payload = Gson().toJson(mapOf(
+                "recipientId" to recipientId,
+                "counterpartyRole" to role
+            ))
             functions.createExecution(
                 functionId = AppwriteConstants.CONNECTION_REQUESTS_FUNCTION_ID,
                 body = payload
@@ -58,7 +61,8 @@ class ConnectionRequestsRepositoryImpl @Inject constructor(
                     requesterId = requesterId,
                     recipientId = doc.data["recipientId"] as String,
                     status = doc.data["status"] as String,
-                    counterpartyName = requesterName
+                    counterpartyName = requesterName,
+                    counterpartyRole = doc.data["counterpartyRole"] as? String ?: "Partner"
                 )
             }
             Result.success(requests)
@@ -85,7 +89,8 @@ class ConnectionRequestsRepositoryImpl @Inject constructor(
                     requesterId = doc.data["requesterId"] as String,
                     recipientId = recipientId,
                     status = doc.data["status"] as String,
-                    counterpartyName = recipientName
+                    counterpartyName = recipientName,
+                    counterpartyRole = doc.data["counterpartyRole"] as? String ?: "Partner"
                 )
             }
             Result.success(requests)
@@ -94,14 +99,33 @@ class ConnectionRequestsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun approveRequest(requestId: String): Result<Unit> {
+    override suspend fun approveRequest(request: ConnectionRequest): Result<Unit> {
         return try {
+            // 1. Update the request status
             databases.updateDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.CONNECTION_REQUESTS_COLLECTION_ID,
-                documentId = requestId,
+                documentId = request.id,
                 data = mapOf("status" to "approved")
             )
+
+            // 2. Update the recipient's (current user's) profile with their new role
+            databases.updateDocument(
+                databaseId = AppwriteConstants.DATABASE_ID,
+                collectionId = AppwriteConstants.USER_PROFILES_COLLECTION_ID,
+                documentId = request.recipientId,
+                data = mapOf("role" to request.counterpartyRole)
+            )
+
+            // 3. Update the requester's profile with the opposite role
+            val requesterRole = if (request.counterpartyRole.equals("Dominant", true)) "submissive" else "Dominant"
+            databases.updateDocument(
+                databaseId = AppwriteConstants.DATABASE_ID,
+                collectionId = AppwriteConstants.USER_PROFILES_COLLECTION_ID,
+                documentId = request.requesterId,
+                data = mapOf("role" to requesterRole)
+            )
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

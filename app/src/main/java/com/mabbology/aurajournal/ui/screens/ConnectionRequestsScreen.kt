@@ -19,14 +19,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.ConnectionRequest
 import com.mabbology.aurajournal.ui.viewmodel.ConnectionRequestsViewModel
+import com.mabbology.aurajournal.ui.viewmodel.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectionRequestsScreen(
     navController: NavController,
-    viewModel: ConnectionRequestsViewModel = hiltViewModel()
+    viewModel: ConnectionRequestsViewModel = hiltViewModel(),
+    profileViewModel: ProfileViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val profileState by profileViewModel.profileState.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadRequests()
@@ -35,7 +38,7 @@ fun ConnectionRequestsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Connections") },
+                title = { Text("Our Link") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -74,7 +77,7 @@ fun ConnectionRequestsScreen(
                     items(state.incomingRequests) { request ->
                         IncomingRequestCard(
                             request = request,
-                            onApprove = { viewModel.approveRequest(request.id) },
+                            onApprove = { viewModel.approveRequest(request) },
                             onReject = { viewModel.rejectRequest(request.id) }
                         )
                     }
@@ -89,7 +92,13 @@ fun ConnectionRequestsScreen(
                     item { Text("No outgoing requests.") }
                 } else {
                     items(state.outgoingRequests) { request ->
-                        OutgoingRequestCard(request = request)
+                        OutgoingRequestCard(
+                            request = request,
+                            currentUserRole = profileState.role,
+                            onAssignJournal = {
+                                navController.navigate("createAssignment/${request.recipientId}")
+                            }
+                        )
                     }
                 }
             }
@@ -107,12 +116,12 @@ fun IncomingRequestCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .defaultMinSize(minHeight = 72.dp) // Standardized minimum height
+                .defaultMinSize(minHeight = 72.dp)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Request from: ${request.counterpartyName}",
+                text = "${request.counterpartyName}: ${getOppositeRole(request.counterpartyRole)}",
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
@@ -135,20 +144,42 @@ fun IncomingRequestCard(
 }
 
 @Composable
-fun OutgoingRequestCard(request: ConnectionRequest) {
+fun OutgoingRequestCard(
+    request: ConnectionRequest,
+    currentUserRole: String?,
+    onAssignJournal: () -> Unit
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .defaultMinSize(minHeight = 72.dp) // Standardized minimum height
+                .defaultMinSize(minHeight = 72.dp)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Request to: ${request.counterpartyName}",
-                modifier = Modifier.weight(1f)
-            )
-            Text(request.status.replaceFirstChar { it.uppercase() })
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${request.counterpartyName}: ${request.counterpartyRole.replaceFirstChar { it.uppercase() }}",
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = request.status.replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (request.status == "approved" && currentUserRole == "Dominant") {
+                Button(onClick = onAssignJournal) {
+                    Text("Assign Journal")
+                }
+            }
         }
     }
+}
+
+private fun getOppositeRole(role: String): String {
+    return when (role.lowercase()) {
+        "dominant" -> "submissive"
+        "submissive" -> "Dominant"
+        else -> "Partner"
+    }.replaceFirstChar { it.uppercase() }
 }

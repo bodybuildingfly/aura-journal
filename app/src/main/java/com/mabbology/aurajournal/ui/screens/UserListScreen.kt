@@ -24,11 +24,24 @@ fun UserListScreen(
     val userListState by viewModel.userListState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
+    var showRoleDialogForUser by remember { mutableStateOf<UserProfile?>(null) }
 
     LaunchedEffect(userListState.requestSentMessage) {
         userListState.requestSentMessage?.let {
             snackbarHostState.showSnackbar(it)
+            viewModel.clearRequestSentMessage() // Clear message after showing
         }
+    }
+
+    if (showRoleDialogForUser != null) {
+        RoleSelectionDialog(
+            user = showRoleDialogForUser!!,
+            onDismiss = { showRoleDialogForUser = null },
+            onRoleSelected = { role ->
+                viewModel.sendConnectionRequest(showRoleDialogForUser!!.userId, role)
+                showRoleDialogForUser = null
+            }
+        )
     }
 
     Scaffold(
@@ -67,13 +80,48 @@ fun UserListScreen(
             } else {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp)) {
                     items(userListState.users) { user ->
-                        UserCard(user = user, onSendRequest = { viewModel.sendConnectionRequest(user.userId) })
+                        UserCard(user = user, onSendRequest = { showRoleDialogForUser = user })
                         HorizontalDivider()
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+fun RoleSelectionDialog(
+    user: UserProfile,
+    onDismiss: () -> Unit,
+    onRoleSelected: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Role") },
+        text = { Text("What is your relationship with ${user.displayName}?") },
+        confirmButton = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = { onRoleSelected("Dominant") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("They are my Dominant")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { onRoleSelected("submissive") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("They are my submissive")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable

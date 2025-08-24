@@ -44,9 +44,9 @@ class ConnectionRequestsViewModel @Inject constructor(
         }
     }
 
-    fun approveRequest(requestId: String) {
+    fun approveRequest(request: ConnectionRequest) {
         viewModelScope.launch {
-            repository.approveRequest(requestId)
+            repository.approveRequest(request)
             loadRequests() // Refresh the lists
         }
     }

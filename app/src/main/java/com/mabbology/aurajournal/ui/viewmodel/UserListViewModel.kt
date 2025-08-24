@@ -8,6 +8,7 @@ import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -53,14 +54,18 @@ class UserListViewModel @Inject constructor(
         }
     }
 
-    fun sendConnectionRequest(recipientId: String) {
+    fun sendConnectionRequest(recipientId: String, role: String) {
         viewModelScope.launch {
-            val result = connectionRequestsRepository.sendConnectionRequest(recipientId)
+            val result = connectionRequestsRepository.sendConnectionRequest(recipientId, role)
             if (result.isSuccess) {
-                _userListState.value = _userListState.value.copy(requestSentMessage = "Request sent!")
+                _userListState.update { it.copy(requestSentMessage = "Request sent!") }
             } else {
-                _userListState.value = _userListState.value.copy(error = "Failed to send request.")
+                _userListState.update { it.copy(error = "Failed to send request.") }
             }
         }
+    }
+
+    fun clearRequestSentMessage() {
+        _userListState.update { it.copy(requestSentMessage = null) }
     }
 }

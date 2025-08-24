@@ -5,5 +5,6 @@ data class ConnectionRequest(
     val requesterId: String,
     val recipientId: String,
     val status: String,
-    val counterpartyName: String
+    val counterpartyName: String,
+    val counterpartyRole: String
 )

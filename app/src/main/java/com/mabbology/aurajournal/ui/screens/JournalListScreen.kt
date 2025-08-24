@@ -7,80 +7,62 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.outlined.Book
-import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.Journal
-import com.mabbology.aurajournal.ui.viewmodel.AuthViewModel
+import com.mabbology.aurajournal.ui.viewmodel.ConnectionRequestsViewModel
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
+import com.mabbology.aurajournal.ui.viewmodel.ProfileState
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun JournalListScreen(
     navController: NavController,
     viewModel: JournalViewModel,
-    authViewModel: AuthViewModel
+    profileState: ProfileState,
+    connectionViewModel: ConnectionRequestsViewModel = hiltViewModel()
 ) {
     val journalListState by viewModel.journalListState.collectAsState()
-    var showMenu by remember { mutableStateOf(false) }
+    val connectionState by connectionViewModel.state.collectAsState()
+
+    val submissivePartnerId = remember(connectionState) {
+        connectionState.outgoingRequests.find { it.status == "approved" }?.recipientId
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.getJournalEntries()
+    }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("My Journal") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                actions = {
-                    IconButton(onClick = { navController.navigate("connectionRequests") }) {
-                        Icon(
-                            imageVector = Icons.Outlined.People,
-                            contentDescription = "Connections"
-                        )
-                    }
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "More Options"
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
+        floatingActionButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                if (profileState.role == "Dominant" && submissivePartnerId != null) {
+                    FloatingActionButton(
+                        onClick = { navController.navigate("createAssignment/$submissivePartnerId") },
+                        modifier = Modifier.padding(bottom = 16.dp)
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("Profile") },
-                            onClick = {
-                                showMenu = false
-                                navController.navigate("profile")
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Logout") },
-                            onClick = {
-                                showMenu = false
-                                authViewModel.logout()
-                            }
-                        )
+                        Icon(Icons.Default.Assignment, contentDescription = "Assign Journal Entry")
                     }
                 }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate("journalEditor") }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Journal Entry")
+                FloatingActionButton(onClick = { navController.navigate("journalEditor") }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Journal Entry")
+                }
             }
         }
     ) { paddingValues ->

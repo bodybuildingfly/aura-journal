@@ -4,16 +4,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import androidx.navigation.navigation
 import com.mabbology.aurajournal.ui.viewmodel.AuthViewModel
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
+import com.mabbology.aurajournal.ui.viewmodel.NoteViewModel
 
 @Composable
 fun NavGraph(
@@ -25,89 +24,115 @@ fun NavGraph(
     LaunchedEffect(authState.isAuthenticated) {
         if (!authState.isAuthenticated && !authState.isLoading) {
             navController.navigate("auth_flow") {
-                popUpTo(navController.graph.id) {
-                    inclusive = true
-                }
+                popUpTo(navController.graph.id) { inclusive = true }
             }
         }
     }
 
-    val startDestination = if (authState.isAuthenticated) "journal_flow" else "auth_flow"
+    val startDestination = if (authState.isAuthenticated) "main" else "auth_flow"
 
     NavHost(navController = navController, startDestination = startDestination) {
-        navigation(startDestination = "login", route = "auth_flow") {
-            composable("login") {
-                LoginScreen(navController = navController, viewModel = authViewModel)
-            }
-            composable("register") {
-                RegistrationScreen(navController = navController, viewModel = authViewModel)
-            }
+        composable("auth_flow") {
+            LoginScreen(navController = navController, viewModel = authViewModel)
+        }
+        composable("register") {
+            RegistrationScreen(navController = navController, viewModel = authViewModel)
         }
 
-        navigation(startDestination = "journalList", route = "journal_flow") {
-            composable("journalList") { backStackEntry ->
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry("journal_flow")
-                }
-                val journalViewModel: JournalViewModel = hiltViewModel(parentEntry)
-                JournalListScreen(
-                    navController = navController,
-                    viewModel = journalViewModel,
-                    authViewModel = authViewModel
-                )
-            }
-            // Route for creating a NEW entry
-            composable("journalEditor") { backStackEntry ->
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry("journal_flow")
-                }
-                val journalViewModel: JournalViewModel = hiltViewModel(parentEntry)
-                JournalEditorScreen(
-                    navController = navController,
-                    viewModel = journalViewModel,
-                    journalId = null
-                )
-            }
-            // Route for EDITING an existing entry
-            composable(
-                route = "journalEditor/{journalId}",
-                arguments = listOf(navArgument("journalId") {
+        composable("main") {
+            MainScreen(navController = navController, authViewModel = authViewModel)
+        }
+
+        // --- Journal Routes ---
+        composable(
+            "journalView/{journalId}",
+            arguments = listOf(navArgument("journalId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val viewModel: JournalViewModel = hiltViewModel()
+            JournalViewScreen(
+                navController = navController,
+                viewModel = viewModel,
+                journalId = backStackEntry.arguments?.getString("journalId")
+            )
+        }
+        composable(
+            route = "journalEditor?journalId={journalId}&assignmentId={assignmentId}&prompt={prompt}",
+            arguments = listOf(
+                navArgument("journalId") {
                     type = NavType.StringType
-                })
-            ) { backStackEntry ->
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry("journal_flow")
+                    nullable = true
+                },
+                navArgument("assignmentId") {
+                    type = NavType.StringType
+                    nullable = true
+                },
+                navArgument("prompt") {
+                    type = NavType.StringType
+                    nullable = true
                 }
-                val journalViewModel: JournalViewModel = hiltViewModel(parentEntry)
-                JournalEditorScreen(
-                    navController = navController,
-                    viewModel = journalViewModel,
-                    journalId = backStackEntry.arguments?.getString("journalId")
-                )
-            }
-            composable(
-                route = "journalView/{journalId}",
-                arguments = listOf(navArgument("journalId") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry("journal_flow")
-                }
-                val journalViewModel: JournalViewModel = hiltViewModel(parentEntry)
-                JournalViewScreen(
-                    navController = navController,
-                    viewModel = journalViewModel,
-                    journalId = backStackEntry.arguments?.getString("journalId")
-                )
-            }
-            composable("connectionRequests") {
-                ConnectionRequestsScreen(navController = navController)
-            }
-            composable("userList") {
-                UserListScreen(navController = navController)
-            }
-            composable("profile") {
-                ProfileScreen(navController = navController)
-            }
+            )
+        ) { backStackEntry ->
+            val viewModel: JournalViewModel = hiltViewModel()
+            JournalEditorScreen(
+                navController = navController,
+                viewModel = viewModel,
+                journalId = backStackEntry.arguments?.getString("journalId"),
+                assignmentId = backStackEntry.arguments?.getString("assignmentId"),
+                prompt = backStackEntry.arguments?.getString("prompt")
+            )
+        }
+
+        // --- Note Routes ---
+        composable(
+            "noteView/{noteId}",
+            arguments = listOf(navArgument("noteId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val viewModel: NoteViewModel = hiltViewModel()
+            NoteViewScreen(
+                navController = navController,
+                viewModel = viewModel,
+                noteId = backStackEntry.arguments?.getString("noteId")
+            )
+        }
+        composable("noteEditor") {
+            val viewModel: NoteViewModel = hiltViewModel()
+            NoteEditorScreen(navController = navController, viewModel = viewModel, noteId = null)
+        }
+        composable(
+            "noteEditor/{noteId}",
+            arguments = listOf(navArgument("noteId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val viewModel: NoteViewModel = hiltViewModel()
+            NoteEditorScreen(
+                navController = navController,
+                viewModel = viewModel,
+                noteId = backStackEntry.arguments?.getString("noteId")
+            )
+        }
+
+        // --- Other Routes ---
+        composable("connectionRequests") {
+            ConnectionRequestsScreen(navController = navController)
+        }
+        composable("userList") {
+            UserListScreen(navController = navController)
+        }
+        composable("profile") {
+            ProfileScreen(navController = navController)
+        }
+
+        // --- Assignment Routes ---
+        composable("assignmentList") {
+            AssignmentListScreen(navController = navController)
+        }
+        composable(
+            "createAssignment/{submissiveId}",
+            arguments = listOf(navArgument("submissiveId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            CreateAssignmentScreen(
+                navController = navController,
+                submissiveId = backStackEntry.arguments?.getString("submissiveId")
+            )
         }
     }
 }
