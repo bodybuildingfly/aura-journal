@@ -13,8 +13,6 @@ import io.appwrite.services.Databases
 import io.appwrite.services.Functions
 import javax.inject.Inject
 
-private const val TAG = "ConnectionRequestsRepo"
-
 class ConnectionRequestsRepositoryImpl @Inject constructor(
     private val client: Client,
     private val userProfilesRepository: UserProfilesRepository
@@ -26,7 +24,6 @@ class ConnectionRequestsRepositoryImpl @Inject constructor(
 
     override suspend fun sendConnectionRequest(recipientId: String, role: String): Result<Unit> {
         return try {
-            Log.d(TAG, "Executing create-connection-request function for recipient: $recipientId with role: $role")
             val payload = Gson().toJson(mapOf(
                 "recipientId" to recipientId,
                 "counterpartyRole" to role
@@ -35,10 +32,8 @@ class ConnectionRequestsRepositoryImpl @Inject constructor(
                 functionId = AppwriteConstants.CONNECTION_REQUESTS_FUNCTION_ID,
                 body = payload
             )
-            Log.d(TAG, "Function executed successfully.")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Error executing connection request function: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -101,31 +96,16 @@ class ConnectionRequestsRepositoryImpl @Inject constructor(
 
     override suspend fun approveRequest(request: ConnectionRequest): Result<Unit> {
         return try {
-            // 1. Update the request status
-            databases.updateDocument(
-                databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.CONNECTION_REQUESTS_COLLECTION_ID,
-                documentId = request.id,
-                data = mapOf("status" to "approved")
+            val payload = Gson().toJson(mapOf(
+                "requestId" to request.id,
+                "recipientId" to request.recipientId,
+                "requesterId" to request.requesterId,
+                "counterpartyRole" to request.counterpartyRole
+            ))
+            functions.createExecution(
+                functionId = AppwriteConstants.APPROVE_CONNECTION_REQUEST_FUNCTION_ID,
+                body = payload
             )
-
-            // 2. Update the recipient's (current user's) profile with their new role
-            databases.updateDocument(
-                databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.USER_PROFILES_COLLECTION_ID,
-                documentId = request.recipientId,
-                data = mapOf("role" to request.counterpartyRole)
-            )
-
-            // 3. Update the requester's profile with the opposite role
-            val requesterRole = if (request.counterpartyRole.equals("Dominant", true)) "submissive" else "Dominant"
-            databases.updateDocument(
-                databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.USER_PROFILES_COLLECTION_ID,
-                documentId = request.requesterId,
-                data = mapOf("role" to requesterRole)
-            )
-
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

@@ -2,9 +2,9 @@ package com.mabbology.aurajournal.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -38,8 +38,8 @@ fun AppDrawer(
             }
         )
         NavigationDrawerItem(
-            icon = { Icon(Icons.Default.Favorite, contentDescription = "Our Link") },
-            label = { Text("Our Link") },
+            icon = { Icon(Icons.Default.Favorite, contentDescription = "Partners") },
+            label = { Text("Partners") },
             selected = false,
             onClick = {
                 navController.navigate("connectionRequests")
@@ -48,7 +48,7 @@ fun AppDrawer(
         )
         if (profileState.role == "submissive") {
             NavigationDrawerItem(
-                icon = { Icon(Icons.Default.Assignment, contentDescription = "My Assignments") },
+                icon = { Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = "My Assignments") },
                 label = { Text("My Assignments") },
                 selected = false,
                 onClick = {

@@ -12,6 +12,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.ui.viewmodel.ConnectionRequestsViewModel
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
+import com.mabbology.aurajournal.ui.viewmodel.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -19,6 +20,7 @@ fun JournalEditorScreen(
     navController: NavController,
     viewModel: JournalViewModel,
     connectionViewModel: ConnectionRequestsViewModel = hiltViewModel(),
+    profileViewModel: ProfileViewModel = hiltViewModel(),
     journalId: String? = null,
     assignmentId: String? = null,
     prompt: String? = null
@@ -26,6 +28,7 @@ fun JournalEditorScreen(
     val editorState by viewModel.journalEditorState.collectAsState()
     val selectedJournalState by viewModel.selectedJournalState.collectAsState()
     val connectionState by connectionViewModel.state.collectAsState()
+    val profileState by profileViewModel.profileState.collectAsState()
 
     var title by remember { mutableStateOf(prompt ?: "") }
     var content by remember { mutableStateOf("") }
@@ -107,7 +110,7 @@ fun JournalEditorScreen(
                 ) {
                     Switch(checked = isShared, onCheckedChange = { isShared = it })
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Share with partner")
+                    Text(if (profileState.role == "submissive") "Submit as Offering" else "Share with partner")
                 }
             }
 

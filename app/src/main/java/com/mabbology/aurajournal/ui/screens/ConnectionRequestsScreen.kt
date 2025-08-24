@@ -38,7 +38,7 @@ fun ConnectionRequestsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Our Link") },
+                title = { Text("Partners") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(

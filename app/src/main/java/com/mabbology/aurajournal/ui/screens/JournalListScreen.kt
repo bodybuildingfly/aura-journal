@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material3.*
@@ -57,7 +57,7 @@ fun JournalListScreen(
                         onClick = { navController.navigate("createAssignment/$submissivePartnerId") },
                         modifier = Modifier.padding(bottom = 16.dp)
                     ) {
-                        Icon(Icons.Default.Assignment, contentDescription = "Assign Journal Entry")
+                        Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = "Assign Journal Entry")
                     }
                 }
                 FloatingActionButton(onClick = { navController.navigate("journalEditor") }) {
