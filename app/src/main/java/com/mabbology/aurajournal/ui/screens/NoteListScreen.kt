@@ -24,14 +24,9 @@ import com.mabbology.aurajournal.ui.viewmodel.ProfileState
 @Composable
 fun NoteListScreen(
     navController: NavController,
-    viewModel: NoteViewModel,
-    profileState: ProfileState
+    viewModel: NoteViewModel
 ) {
     val noteListState by viewModel.noteListState.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.getNotes()
-    }
 
     Scaffold(
         floatingActionButton = {
@@ -45,37 +40,28 @@ fun NoteListScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when {
-                noteListState.isLoading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-                noteListState.error != null -> {
-                    Text(
-                        text = "Error: ${noteListState.error}",
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                noteListState.notes.isEmpty() -> {
-                    EmptyNoteView()
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(
-                            items = noteListState.notes,
-                            key = { note -> note.id }
-                        ) { note ->
-                            NoteCard(
-                                note = note,
-                                onClick = { navController.navigate("noteView/${note.id}") },
-                                modifier = Modifier.animateItem()
-                            )
-                        }
+            if (noteListState.notes.isEmpty() && !noteListState.isLoading) {
+                EmptyNoteView()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(
+                        items = noteListState.notes,
+                        key = { note -> note.id }
+                    ) { note ->
+                        NoteCard(
+                            note = note,
+                            onClick = { navController.navigate("noteView/${note.id}") },
+                            modifier = Modifier.animateItem()
+                        )
                     }
                 }
+            }
+            if (noteListState.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         }
     }

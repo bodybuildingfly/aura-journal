@@ -13,41 +13,38 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.UserProfile
+import com.mabbology.aurajournal.ui.viewmodel.PartnerRequestsViewModel
+import com.mabbology.aurajournal.ui.viewmodel.PartnersViewModel
 import com.mabbology.aurajournal.ui.viewmodel.UserListViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserListScreen(
     navController: NavController,
-    viewModel: UserListViewModel = hiltViewModel()
+    viewModel: UserListViewModel = hiltViewModel(),
+    partnersViewModel: PartnersViewModel = hiltViewModel(),
+    requestsViewModel: PartnerRequestsViewModel = hiltViewModel()
 ) {
     val userListState by viewModel.userListState.collectAsState()
+    val partnersState by partnersViewModel.state.collectAsState()
+    val requestsState by requestsViewModel.state.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
-    var showRoleDialogForUser by remember { mutableStateOf<UserProfile?>(null) }
 
     LaunchedEffect(userListState.requestSentMessage) {
         userListState.requestSentMessage?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.clearRequestSentMessage() // Clear message after showing
+            // After the message is shown, sync the requests to update the UI
+            requestsViewModel.syncRequests()
+            viewModel.clearRequestSentMessage()
+            // The call to the removed onApplicationSentHandled() function is no longer needed.
         }
-    }
-
-    if (showRoleDialogForUser != null) {
-        RoleSelectionDialog(
-            user = showRoleDialogForUser!!,
-            onDismiss = { showRoleDialogForUser = null },
-            onRoleSelected = { role ->
-                viewModel.sendConnectionRequest(showRoleDialogForUser!!.userId, role)
-                showRoleDialogForUser = null
-            }
-        )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Find Users") },
+                title = { Text("Find Potential Dominant") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -80,7 +77,24 @@ fun UserListScreen(
             } else {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp)) {
                     items(userListState.users) { user ->
-                        UserCard(user = user, onSendRequest = { showRoleDialogForUser = user })
+                        val isPartner = partnersState.partners.any {
+                            it.dominantId == user.userId || it.submissiveId == user.userId
+                        }
+                        val isPending = requestsState.outgoingRequests.any {
+                            it.dominantId == user.userId
+                        }
+
+                        val status = when {
+                            isPartner -> "Partnered"
+                            isPending -> "Pending"
+                            else -> null
+                        }
+
+                        UserCard(
+                            user = user,
+                            status = status,
+                            onApply = { viewModel.sendApplication(user.userId) }
+                        )
                         HorizontalDivider()
                     }
                 }
@@ -90,42 +104,7 @@ fun UserListScreen(
 }
 
 @Composable
-fun RoleSelectionDialog(
-    user: UserProfile,
-    onDismiss: () -> Unit,
-    onRoleSelected: (String) -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Select Role") },
-        text = { Text("What is your relationship with ${user.displayName}?") },
-        confirmButton = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = { onRoleSelected("Dominant") },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("They are my Dominant")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { onRoleSelected("submissive") },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("They are my submissive")
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@Composable
-fun UserCard(user: UserProfile, onSendRequest: () -> Unit) {
+fun UserCard(user: UserProfile, status: String?, onApply: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -134,8 +113,13 @@ fun UserCard(user: UserProfile, onSendRequest: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(text = user.displayName, style = MaterialTheme.typography.bodyLarge)
-        Button(onClick = onSendRequest) {
-            Text("Send Request")
+
+        if (status != null) {
+            Text(text = status, style = MaterialTheme.typography.bodyMedium)
+        } else {
+            Button(onClick = onApply) {
+                Text("Apply")
+            }
         }
     }
 }

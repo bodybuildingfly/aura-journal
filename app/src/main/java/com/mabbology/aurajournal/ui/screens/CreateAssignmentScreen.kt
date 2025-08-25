@@ -22,6 +22,7 @@ fun CreateAssignmentScreen(
     var prompt by remember { mutableStateOf("") }
     val state by viewModel.state.collectAsState()
 
+    // This effect now triggers navigation immediately when assignmentCreated is true.
     LaunchedEffect(state.assignmentCreated) {
         if (state.assignmentCreated) {
             navController.popBackStack()
@@ -63,6 +64,7 @@ fun CreateAssignmentScreen(
                         viewModel.createAssignment(submissiveId, prompt)
                     }
                 },
+                // The button is disabled while the operation is in progress.
                 enabled = prompt.isNotBlank() && submissiveId != null && !state.isLoading,
                 modifier = Modifier.align(Alignment.End)
             ) {

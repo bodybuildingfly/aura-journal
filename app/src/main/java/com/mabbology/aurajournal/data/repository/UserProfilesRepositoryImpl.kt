@@ -4,9 +4,6 @@ import android.util.Log
 import com.mabbology.aurajournal.di.AppwriteConstants
 import com.mabbology.aurajournal.domain.model.UserProfile
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
-import io.appwrite.Client
-import io.appwrite.Permission
-import io.appwrite.Role
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
 import javax.inject.Inject
@@ -14,11 +11,9 @@ import javax.inject.Inject
 private const val TAG = "UserProfilesRepository"
 
 class UserProfilesRepositoryImpl @Inject constructor(
-    private val client: Client
+    private val databases: Databases, // Now injects Databases directly
+    private val account: Account      // And Account directly
 ) : UserProfilesRepository {
-
-    private val databases by lazy { Databases(client) }
-    private val account by lazy { Account(client) }
 
     override suspend fun getUserProfiles(): Result<List<UserProfile>> {
         return try {
@@ -32,8 +27,7 @@ class UserProfilesRepositoryImpl @Inject constructor(
                     UserProfile(
                         userId = document.data["userId"] as String,
                         displayName = document.data["displayName"] as String,
-                        avatarUrl = document.data["avatarUrl"] as? String,
-                        role = document.data["role"] as? String
+                        avatarUrl = document.data["avatarUrl"] as? String
                     )
                 }
                 .filter { it.userId != currentUser.id }
@@ -96,8 +90,7 @@ class UserProfilesRepositoryImpl @Inject constructor(
             val userProfile = UserProfile(
                 userId = document.data["userId"] as String,
                 displayName = document.data["displayName"] as String,
-                avatarUrl = document.data["avatarUrl"] as? String,
-                role = document.data["role"] as? String
+                avatarUrl = document.data["avatarUrl"] as? String
             )
             Result.success(userProfile)
         } catch (e: Exception) {
@@ -115,8 +108,7 @@ class UserProfilesRepositoryImpl @Inject constructor(
             val userProfile = UserProfile(
                 userId = document.data["userId"] as String,
                 displayName = document.data["displayName"] as String,
-                avatarUrl = document.data["avatarUrl"] as? String,
-                role = document.data["role"] as? String
+                avatarUrl = document.data["avatarUrl"] as? String
             )
             Result.success(userProfile)
         } catch (e: Exception) {

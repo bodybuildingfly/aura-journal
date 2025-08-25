@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.mabbology.aurajournal.domain.model.Note
 import com.mabbology.aurajournal.domain.repository.NotesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -44,73 +47,77 @@ class NoteViewModel @Inject constructor(
     private val _selectedNoteState = MutableStateFlow(SelectedNoteState())
     val selectedNoteState: StateFlow<SelectedNoteState> = _selectedNoteState
 
+    private var noteObserverJob: Job? = null
+
     init {
-        getNotes()
+        observeNotes()
+        syncNotes()
     }
 
-    fun getNotes() {
+    private fun observeNotes() {
         viewModelScope.launch {
-            _noteListState.value = NoteListState(isLoading = true)
-            val result = notesRepository.getNotes()
-            _noteListState.value = when {
-                result.isSuccess -> NoteListState(notes = result.getOrNull() ?: emptyList())
-                else -> NoteListState(error = result.exceptionOrNull()?.message)
+            notesRepository.getNotes()
+                .catch { e -> _noteListState.update { it.copy(error = "Failed to load notes from cache.") } }
+                .collect { notes -> _noteListState.update { it.copy(notes = notes) } }
+        }
+    }
+
+    fun syncNotes() {
+        viewModelScope.launch {
+            _noteListState.update { it.copy(isLoading = true) }
+            val result = notesRepository.syncNotes()
+            if (result.isFailure) {
+                _noteListState.update { it.copy(error = "Failed to sync notes.") }
             }
+            _noteListState.update { it.copy(isLoading = false) }
         }
     }
 
     fun createNote(title: String, content: String, type: String, partnerId: String?) {
+        _noteEditorState.value = NoteEditorState(isSaving = true)
         viewModelScope.launch {
-            _noteEditorState.value = NoteEditorState(isSaving = true)
             val result = notesRepository.createNote(title, content, type, partnerId)
             if (result.isSuccess) {
-                val refreshResult = notesRepository.getNotes()
-                _noteListState.value = when {
-                    refreshResult.isSuccess -> NoteListState(notes = refreshResult.getOrNull() ?: emptyList())
-                    else -> NoteListState(error = refreshResult.exceptionOrNull()?.message)
-                }
                 _noteEditorState.value = NoteEditorState(isSaveSuccess = true)
+                if (type == "shared") {
+                    delay(1000)
+                    syncNotes()
+                }
             } else {
-                _noteEditorState.value = NoteEditorState(error = result.exceptionOrNull()?.message)
+                _noteEditorState.value = NoteEditorState(error = result.exceptionOrNull()?.message, isSaving = false)
             }
         }
     }
 
     fun updateNote(id: String, title: String, content: String) {
+        _noteEditorState.value = NoteEditorState(isSaving = true, isSaveSuccess = true)
         viewModelScope.launch {
-            _noteEditorState.value = NoteEditorState(isSaving = true)
             val result = notesRepository.updateNote(id, title, content)
-            if (result.isSuccess) {
-                val refreshResult = notesRepository.getNotes()
-                _noteListState.value = when {
-                    refreshResult.isSuccess -> NoteListState(notes = refreshResult.getOrNull() ?: emptyList())
-                    else -> NoteListState(error = refreshResult.exceptionOrNull()?.message)
-                }
-                _noteEditorState.value = NoteEditorState(isSaveSuccess = true)
-            } else {
-                _noteEditorState.value = NoteEditorState(error = result.exceptionOrNull()?.message)
+            if (result.isFailure) {
+                _noteListState.update { it.copy(error = "Failed to save changes. Your edit has been reverted.") }
             }
         }
     }
 
     fun deleteNote(id: String) {
+        _selectedNoteState.update { it.copy(isDeleted = true) }
         viewModelScope.launch {
             val result = notesRepository.deleteNote(id)
-            if (result.isSuccess) {
-                getNotes()
-                _selectedNoteState.update { it.copy(isDeleted = true) }
+            if (result.isFailure) {
+                _noteListState.update { it.copy(error = "Failed to delete note. It has been restored.") }
             }
         }
     }
 
-    fun getNoteById(id: String) {
-        viewModelScope.launch {
-            _selectedNoteState.value = SelectedNoteState(isLoading = true)
-            val result = notesRepository.getNote(id)
-            _selectedNoteState.value = when {
-                result.isSuccess -> SelectedNoteState(note = result.getOrNull())
-                else -> SelectedNoteState(error = result.exceptionOrNull()?.message)
-            }
+    fun observeNoteById(id: String) {
+        noteObserverJob?.cancel()
+        _selectedNoteState.update { it.copy(isLoading = true) }
+        noteObserverJob = viewModelScope.launch {
+            notesRepository.getNoteStream(id)
+                .catch { e -> _selectedNoteState.update { it.copy(error = "Failed to load note.", isLoading = false) } }
+                .collect { note ->
+                    _selectedNoteState.update { it.copy(note = note, isLoading = false) }
+                }
         }
     }
 

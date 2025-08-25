@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.ui.viewmodel.AuthViewModel
+import com.mabbology.aurajournal.ui.viewmodel.PartnersViewModel
 import com.mabbology.aurajournal.ui.viewmodel.ProfileViewModel
 
 @Composable
@@ -22,9 +23,14 @@ fun AppDrawer(
     navController: NavController,
     authViewModel: AuthViewModel,
     profileViewModel: ProfileViewModel = hiltViewModel(),
+    partnersViewModel: PartnersViewModel = hiltViewModel(),
     closeDrawer: () -> Unit
 ) {
     val profileState by profileViewModel.profileState.collectAsState()
+    val partnersState by partnersViewModel.state.collectAsState()
+
+    // Determine if the user is a submissive in any of their partnerships
+    val isSubmissive = partnersState.partners.any { it.submissiveId == profileState.userId }
 
     ModalDrawerSheet {
         Spacer(Modifier.height(12.dp))
@@ -42,11 +48,11 @@ fun AppDrawer(
             label = { Text("Partners") },
             selected = false,
             onClick = {
-                navController.navigate("connectionRequests")
+                navController.navigate("partners") // Updated route
                 closeDrawer()
             }
         )
-        if (profileState.role == "submissive") {
+        if (isSubmissive) {
             NavigationDrawerItem(
                 icon = { Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = "My Assignments") },
                 label = { Text("My Assignments") },

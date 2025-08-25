@@ -1,19 +1,18 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
-    id("kotlin-kapt")
-    id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 }
 
 android {
     namespace = "com.mabbology.aurajournal"
-    compileSdk = 36 // Updated from 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.mabbology.aurajournal"
         minSdk = 26
-        targetSdk = 36 // Updated from 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -41,6 +40,9 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
     }
     packaging {
         resources {
@@ -70,13 +72,14 @@ dependencies {
 
     // Hilt
     implementation("com.google.dagger:hilt-android:2.51.1")
-    kapt("com.google.dagger:hilt-compiler:2.51.1")
+    ksp("com.google.dagger:hilt-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
-    // Room
+    // Room Database
     implementation("androidx.room:room-runtime:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
+
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
@@ -101,6 +104,6 @@ java {
     }
 }
 
-kapt {
-    correctErrorTypes = true
+ksp {
+    arg("room.skipQueryVerification", "true")
 }

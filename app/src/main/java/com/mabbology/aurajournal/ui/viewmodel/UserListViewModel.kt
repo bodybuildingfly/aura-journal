@@ -3,7 +3,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mabbology.aurajournal.domain.model.UserProfile
-import com.mabbology.aurajournal.domain.repository.ConnectionRequestsRepository
+import com.mabbology.aurajournal.domain.repository.PartnerRequestsRepository
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +22,7 @@ data class UserListState(
 @HiltViewModel
 class UserListViewModel @Inject constructor(
     private val userProfilesRepository: UserProfilesRepository,
-    private val connectionRequestsRepository: ConnectionRequestsRepository
+    private val partnerRequestsRepository: PartnerRequestsRepository
 ) : ViewModel() {
 
     private val _userListState = MutableStateFlow(UserListState())
@@ -54,13 +54,27 @@ class UserListViewModel @Inject constructor(
         }
     }
 
-    fun sendConnectionRequest(recipientId: String, role: String) {
+    fun sendApplication(dominantId: String) {
         viewModelScope.launch {
-            val result = connectionRequestsRepository.sendConnectionRequest(recipientId, role)
-            if (result.isSuccess) {
-                _userListState.update { it.copy(requestSentMessage = "Request sent!") }
+            val currentUserResult = userProfilesRepository.getCurrentUserProfile()
+            if (currentUserResult.isSuccess) {
+                val submissiveId = currentUserResult.getOrNull()?.userId
+                if (submissiveId == null) {
+                    _userListState.update { it.copy(error = "Could not identify current user.") }
+                    return@launch
+                }
+
+                // The repository now handles the optimistic update.
+                // We just call the function and trust the UI to react.
+                val result = partnerRequestsRepository.sendPartnerRequest(dominantId, submissiveId)
+
+                if (result.isSuccess) {
+                    _userListState.update { it.copy(requestSentMessage = "Application sent!") }
+                } else {
+                    _userListState.update { it.copy(error = "Failed to send application.") }
+                }
             } else {
-                _userListState.update { it.copy(error = "Failed to send request.") }
+                _userListState.update { it.copy(error = "Could not fetch current user profile.") }
             }
         }
     }

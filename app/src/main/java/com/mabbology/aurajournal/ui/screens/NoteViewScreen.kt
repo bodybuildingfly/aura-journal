@@ -26,7 +26,7 @@ fun NoteViewScreen(
 
     LaunchedEffect(noteId) {
         if (noteId != null) {
-            viewModel.getNoteById(noteId)
+            viewModel.observeNoteById(noteId)
         }
     }
 
@@ -59,7 +59,7 @@ fun NoteViewScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(selectedNoteState.note?.title ?: "Shared Note") },
+                title = { Text(selectedNoteState.note?.title ?: "Note") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

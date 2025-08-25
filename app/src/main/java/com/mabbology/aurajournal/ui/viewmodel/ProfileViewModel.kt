@@ -12,8 +12,8 @@ import javax.inject.Inject
 
 data class ProfileState(
     val isLoading: Boolean = false,
+    val userId: String = "",
     val displayName: String = "",
-    val role: String? = null,
     val error: String? = null,
     val successMessage: String? = null
 )
@@ -39,8 +39,8 @@ class ProfileViewModel @Inject constructor(
                 result.isSuccess -> {
                     val profile = result.getOrNull()
                     ProfileState(
-                        displayName = profile?.displayName ?: "User",
-                        role = profile?.role // Store the role
+                        userId = profile?.userId ?: "",
+                        displayName = profile?.displayName ?: "User"
                     )
                 }
                 else -> ProfileState(error = "Failed to load profile.")

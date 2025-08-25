@@ -111,8 +111,8 @@ fun NavGraph(
         }
 
         // --- Other Routes ---
-        composable("connectionRequests") {
-            ConnectionRequestsScreen(navController = navController)
+        composable("partners") {
+            PartnersScreen(navController = navController)
         }
         composable("userList") {
             UserListScreen(navController = navController)

@@ -26,17 +26,18 @@ fun JournalViewScreen(
     val selectedJournalState by viewModel.selectedJournalState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    // This effect now starts observing the journal from the local database.
+    // The UI will load instantly and then update if any changes occur.
     LaunchedEffect(journalId) {
         if (journalId != null) {
-            viewModel.getJournalById(journalId)
+            viewModel.observeJournalById(journalId)
         }
     }
 
-    // This effect now correctly handles the one-time navigation event
     LaunchedEffect(selectedJournalState.isDeleted) {
         if (selectedJournalState.isDeleted) {
             navController.popBackStack()
-            viewModel.onDeletionHandled() // Reset the flag after navigating
+            viewModel.onDeletionHandled()
         }
     }
 
@@ -77,9 +78,8 @@ fun JournalViewScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        // Pass the non-nullable journalId to the editor
                         journalId?.let { id ->
-                            navController.navigate("journalEditor/$id")
+                            navController.navigate("journalEditor?journalId=$id")
                         }
                     }) {
                         Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit")

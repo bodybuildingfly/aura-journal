@@ -32,10 +32,10 @@ fun MainTopAppBar(
             titleContentColor = MaterialTheme.colorScheme.onSurface
         ),
         actions = {
-            IconButton(onClick = { navController.navigate("connectionRequests") }) {
+            IconButton(onClick = { navController.navigate("partners") }) {
                 Icon(
                     imageVector = Icons.Outlined.People,
-                    contentDescription = "Connections"
+                    contentDescription = "Partners"
                 )
             }
             IconButton(onClick = { showMenu = true }) {

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,10 +27,6 @@ fun AssignmentListScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
-    LaunchedEffect(Unit) {
-        viewModel.getPendingAssignments()
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -38,14 +35,17 @@ fun AssignmentListScreen(
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.syncAssignments() }) {
+                        Icon(Icons.Default.Sync, contentDescription = "Refresh")
+                    }
                 }
             )
         }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            if (state.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (state.assignments.isEmpty()) {
+            if (state.assignments.isEmpty() && !state.isLoading) {
                 Text("You have no pending assignments.", modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
@@ -62,6 +62,9 @@ fun AssignmentListScreen(
                         )
                     }
                 }
+            }
+            if (state.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         }
     }

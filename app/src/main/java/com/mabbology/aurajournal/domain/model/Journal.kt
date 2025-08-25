@@ -6,6 +6,7 @@ data class Journal(
     val title: String,
     val content: String,
     val createdAt: String,
-    val type: String, // "personal" or "shared"
-    val partnerId: String? = null // Null for personal entries
+    val type: String,
+    val partnerId: String? = null,
+    val mood: String? = null
 )

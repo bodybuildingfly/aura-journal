@@ -1,16 +1,23 @@
 package com.mabbology.aurajournal.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mabbology.aurajournal.domain.model.Journal
 import com.mabbology.aurajournal.domain.repository.JournalAssignmentsRepository
 import com.mabbology.aurajournal.domain.repository.JournalsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+
+private const val TAG = "JournalViewModel"
 
 data class JournalListState(
     val isLoading: Boolean = false,
@@ -46,80 +53,108 @@ class JournalViewModel @Inject constructor(
     private val _selectedJournalState = MutableStateFlow(SelectedJournalState())
     val selectedJournalState: StateFlow<SelectedJournalState> = _selectedJournalState
 
+    private val isSyncing = AtomicBoolean(false)
+    private var journalObserverJob: Job? = null
+
     init {
-        getJournalEntries()
+        observeJournals()
+        syncJournals()
     }
 
-    fun getJournalEntries() {
+    private fun observeJournals() {
         viewModelScope.launch {
-            _journalListState.value = JournalListState(isLoading = true)
-            val result = journalsRepository.getJournalEntries()
-            _journalListState.value = when {
-                result.isSuccess -> JournalListState(journals = result.getOrNull() ?: emptyList())
-                else -> JournalListState(error = result.exceptionOrNull()?.message)
+            journalsRepository.getJournalEntries()
+                .catch { e -> _journalListState.update { it.copy(error = "Failed to load journals from cache.") } }
+                .collect { journals -> _journalListState.update { it.copy(journals = journals) } }
+        }
+    }
+
+    fun syncJournals() {
+        if (!isSyncing.compareAndSet(false, true)) {
+            Log.d(TAG, "Sync already in progress. Skipping.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Starting journal sync.")
+                _journalListState.update { it.copy(isLoading = true) }
+                val result = journalsRepository.syncJournalEntries()
+                if (result.isFailure) {
+                    _journalListState.update { it.copy(error = "Failed to sync journals.") }
+                }
+            } finally {
+                _journalListState.update { it.copy(isLoading = false) }
+                isSyncing.set(false)
+                Log.d(TAG, "Journal sync finished.")
             }
         }
     }
 
-    fun createJournalEntry(title: String, content: String, type: String, partnerId: String?) {
+    fun createJournalEntry(title: String, content: String, type: String, partnerId: String?, mood: String?) {
+        _journalEditorState.value = JournalEditorState(isSaving = true)
         viewModelScope.launch {
-            _journalEditorState.value = JournalEditorState(isSaving = true)
-            val result = journalsRepository.createJournalEntry(title, content, type, partnerId)
+            val result = journalsRepository.createJournalEntry(title, content, type, partnerId, mood)
             if (result.isSuccess) {
-                getJournalEntries()
                 _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
+                if (type == "shared") {
+                    delay(1000)
+                    syncJournals()
+                }
             } else {
-                _journalEditorState.value = JournalEditorState(error = result.exceptionOrNull()?.message)
+                _journalEditorState.value = JournalEditorState(error = result.exceptionOrNull()?.message, isSaving = false)
             }
         }
     }
 
-    fun completeAssignment(assignmentId: String, title: String, content: String, partnerId: String?) {
+    fun completeAssignment(assignmentId: String, title: String, content: String, partnerId: String?, mood: String?) {
+        _journalEditorState.value = JournalEditorState(isSaving = true)
         viewModelScope.launch {
-            _journalEditorState.value = JournalEditorState(isSaving = true)
-            val journalResult = journalsRepository.createJournalEntry(title, content, "shared", partnerId)
+            val journalResult = journalsRepository.createJournalEntry(title, content, "shared", partnerId, mood)
             if(journalResult.isSuccess) {
-                val newJournalId = journalResult.getOrThrow()
-                assignmentsRepository.completeAssignment(assignmentId, newJournalId)
-                getJournalEntries()
-                _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
+                val assignmentResult = assignmentsRepository.completeAssignment(assignmentId)
+                if (assignmentResult.isSuccess) {
+                    _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
+                    delay(1000)
+                    syncJournals()
+                } else {
+                    _journalEditorState.value = JournalEditorState(error = "Failed to complete assignment.", isSaving = false)
+                }
             } else {
-                _journalEditorState.value = JournalEditorState(error = journalResult.exceptionOrNull()?.message)
+                _journalEditorState.value = JournalEditorState(error = journalResult.exceptionOrNull()?.message, isSaving = false)
             }
         }
     }
 
     fun updateJournalEntry(id: String, title: String, content: String) {
+        _journalEditorState.value = JournalEditorState(isSaving = true, isSaveSuccess = true)
         viewModelScope.launch {
-            _journalEditorState.value = JournalEditorState(isSaving = true)
             val result = journalsRepository.updateJournalEntry(id, title, content)
-            if (result.isSuccess) {
-                getJournalEntries()
-                _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
-            } else {
-                _journalEditorState.value = JournalEditorState(error = result.exceptionOrNull()?.message)
+            if (result.isFailure) {
+                _journalListState.update { it.copy(error = "Failed to save changes. Your edit has been reverted.") }
             }
         }
     }
 
     fun deleteJournalEntry(id: String) {
+        _selectedJournalState.update { it.copy(isDeleted = true) }
         viewModelScope.launch {
             val result = journalsRepository.deleteJournalEntry(id)
-            if (result.isSuccess) {
-                getJournalEntries()
-                _selectedJournalState.update { it.copy(isDeleted = true) }
+            if (result.isFailure) {
+                _journalListState.update { it.copy(error = "Failed to delete entry. It has been restored.") }
             }
         }
     }
 
-    fun getJournalById(id: String) {
-        viewModelScope.launch {
-            _selectedJournalState.value = SelectedJournalState(isLoading = true)
-            val result = journalsRepository.getJournalEntry(id)
-            _selectedJournalState.value = when {
-                result.isSuccess -> SelectedJournalState(journal = result.getOrNull())
-                else -> SelectedJournalState(error = result.exceptionOrNull()?.message)
-            }
+    fun observeJournalById(id: String) {
+        journalObserverJob?.cancel()
+        _selectedJournalState.update { it.copy(isLoading = true) }
+        journalObserverJob = viewModelScope.launch {
+            journalsRepository.getJournalEntryStream(id)
+                .catch { e -> _selectedJournalState.update { it.copy(error = "Failed to load journal.", isLoading = false) } }
+                .collect { journal ->
+                    _selectedJournalState.update { it.copy(journal = journal, isLoading = false) }
+                }
         }
     }
 
@@ -129,5 +164,9 @@ class JournalViewModel @Inject constructor(
 
     fun onDeletionHandled() {
         _selectedJournalState.update { it.copy(isDeleted = false) }
+    }
+
+    fun clearJournalListError() {
+        _journalListState.update { it.copy(error = null) }
     }
 }
