@@ -11,12 +11,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.Collections.emptyList
 import javax.inject.Inject
 
 data class JournalAssignmentState(
     val isLoading: Boolean = false,
-    val assignments: List<JournalAssignment> = emptyList(),
+    val pendingAssignments: List<JournalAssignment> = emptyList(),
+    val completedAssignments: List<JournalAssignment> = emptyList(),
     val error: String? = null,
     val assignmentCreated: Boolean = false
 )
@@ -36,9 +36,18 @@ class JournalAssignmentViewModel @Inject constructor(
 
     private fun observeAssignments() {
         viewModelScope.launch {
-            repository.getPendingAssignments()
+            repository.getAssignments()
                 .catch { _ -> _state.update { it.copy(error = "Failed to load assignments from cache.") } }
-                .collect { assignments -> _state.update { it.copy(assignments = assignments) } }
+                .collect { assignments ->
+                    val pending = assignments.filter { it.status == "pending" }.sortedByDescending { it.createdAt }
+                    val completed = assignments.filter { it.status == "completed" }.sortedByDescending { it.createdAt }
+                    _state.update {
+                        it.copy(
+                            pendingAssignments = pending,
+                            completedAssignments = completed
+                        )
+                    }
+                }
         }
     }
 

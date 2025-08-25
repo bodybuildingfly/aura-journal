@@ -11,8 +11,8 @@ interface JournalAssignmentDao {
     @Upsert
     suspend fun upsertAssignments(assignments: List<JournalAssignmentEntity>)
 
-    @Query("SELECT * FROM journal_assignments WHERE submissiveId = :userId AND status = 'pending'")
-    fun getPendingAssignments(userId: String): Flow<List<JournalAssignmentEntity>>
+    @Query("SELECT * FROM journal_assignments WHERE submissiveId = :userId")
+    fun getAssignments(userId: String): Flow<List<JournalAssignmentEntity>>
 
     @Query("DELETE FROM journal_assignments")
     suspend fun clearAssignments()

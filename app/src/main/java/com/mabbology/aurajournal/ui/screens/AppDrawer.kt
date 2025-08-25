@@ -52,17 +52,6 @@ fun AppDrawer(
                 closeDrawer()
             }
         )
-        if (isSubmissive) {
-            NavigationDrawerItem(
-                icon = { Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = "Assignments") },
-                label = { Text("Assignments") },
-                selected = false,
-                onClick = {
-                    navController.navigate("assignmentList")
-                    closeDrawer()
-                }
-            )
-        }
         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
         NavigationDrawerItem(
             icon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout") },

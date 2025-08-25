@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Menu
@@ -25,7 +26,7 @@ fun MainScreen(
     navController: NavController,
     authViewModel: AuthViewModel
 ) {
-    val pagerState = rememberPagerState(pageCount = { 2 })
+    val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
@@ -34,8 +35,8 @@ fun MainScreen(
     val partnersViewModel: PartnersViewModel = hiltViewModel()
     val profileState by profileViewModel.profileState.collectAsState()
 
-    val screens = listOf("Journal", "Notes")
-    val icons = listOf(Icons.Default.Book, Icons.Default.EditNote)
+    val screens = listOf("Journal", "Assignments", "Notes")
+    val icons = listOf(Icons.Default.Book, Icons.AutoMirrored.Filled.Assignment, Icons.Default.EditNote)
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -96,7 +97,8 @@ fun MainScreen(
                         profileState = profileState,
                         partnersViewModel = partnersViewModel
                     )
-                    1 -> NoteListScreen(
+                    1 -> AssignmentListScreen(navController = navController)
+                    2 -> NoteListScreen(
                         navController = navController,
                         viewModel = noteViewModel
                     )

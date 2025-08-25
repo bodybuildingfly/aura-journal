@@ -4,6 +4,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.mabbology.aurajournal.domain.model.JournalAssignment
 
+import java.util.Date
+
 @Entity(tableName = "journal_assignments")
 data class JournalAssignmentEntity(
     @PrimaryKey val id: String,
@@ -11,7 +13,8 @@ data class JournalAssignmentEntity(
     val submissiveId: String,
     val prompt: String,
     val status: String,
-    val journalId: String?
+    val journalId: String?,
+    val createdAt: Date
 )
 
 fun JournalAssignmentEntity.toJournalAssignment(): JournalAssignment {
@@ -21,7 +24,8 @@ fun JournalAssignmentEntity.toJournalAssignment(): JournalAssignment {
         submissiveId = submissiveId,
         prompt = prompt,
         status = status,
-        journalId = journalId
+        journalId = journalId,
+        createdAt = createdAt
     )
 }
 
@@ -32,6 +36,7 @@ fun JournalAssignment.toEntity(): JournalAssignmentEntity {
         submissiveId = submissiveId,
         prompt = prompt,
         status = status,
-        journalId = journalId
+        journalId = journalId,
+        createdAt = createdAt
     )
 }

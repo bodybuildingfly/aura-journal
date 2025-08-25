@@ -5,7 +5,7 @@ import com.mabbology.aurajournal.domain.model.JournalAssignment
 import kotlinx.coroutines.flow.Flow
 
 interface JournalAssignmentsRepository {
-    suspend fun getPendingAssignments(): Flow<List<JournalAssignment>>
+    fun getAssignments(): Flow<List<JournalAssignment>>
     suspend fun syncAssignments(): DataResult<Unit>
     suspend fun createAssignment(submissiveId: String, prompt: String): DataResult<Unit>
     suspend fun completeAssignment(assignmentId: String): DataResult<Unit>

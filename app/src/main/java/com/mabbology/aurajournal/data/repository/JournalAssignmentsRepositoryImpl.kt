@@ -13,9 +13,13 @@ import io.appwrite.Query
 import io.appwrite.Role
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import java.util.Date
 import java.util.UUID
 import javax.inject.Inject
 
@@ -27,10 +31,12 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
     private val assignmentDao: JournalAssignmentDao
 ) : JournalAssignmentsRepository {
 
-    override suspend fun getPendingAssignments(): Flow<List<JournalAssignment>> {
-        val userId = account.get().id
-        return assignmentDao.getPendingAssignments(userId).map { entities ->
-            entities.map { it.toJournalAssignment() }
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun getAssignments(): Flow<List<JournalAssignment>> {
+        return flow { emit(account.get().id) }.flatMapLatest { userId ->
+            assignmentDao.getAssignments(userId).map { entities ->
+                entities.map { it.toJournalAssignment() }
+            }
         }
     }
 
@@ -41,18 +47,19 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.JOURNAL_ASSIGNMENTS_COLLECTION_ID,
                 queries = listOf(
-                    Query.equal("submissiveId", user.id),
-                    Query.equal("status", "pending")
+                    Query.equal("submissiveId", user.id)
                 )
             )
             val assignments = response.documents.map { document ->
+                val createdAt = Date((document.createdAt as Long) * 1000)
                 JournalAssignment(
                     id = document.id,
                     dominantId = document.data["dominantId"] as String,
                     submissiveId = document.data["submissiveId"] as String,
                     prompt = document.data["prompt"] as String,
                     status = document.data["status"] as String,
-                    journalId = document.data["journalId"] as? String
+                    journalId = document.data["journalId"] as? String,
+                    createdAt = createdAt
                 )
             }
             assignmentDao.clearAssignments()
@@ -66,13 +73,15 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
     override suspend fun createAssignment(submissiveId: String, prompt: String): DataResult<Unit> {
         val user = account.get()
         val tempId = "local_${UUID.randomUUID()}"
+        val createdAt = Date()
         val newAssignment = JournalAssignment(
             id = tempId,
             dominantId = user.id,
             submissiveId = submissiveId,
             prompt = prompt,
             status = "pending",
-            journalId = null
+            journalId = null,
+            createdAt = createdAt
         )
         Log.d(TAG, "Optimistic Create: Inserting temporary local assignment with id $tempId")
         assignmentDao.upsertAssignments(listOf(newAssignment.toEntity()))
@@ -94,7 +103,7 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
                     Permission.update(Role.user(submissiveId))
                 )
             )
-            val finalAssignment = newAssignment.copy(id = newDocument.id)
+            val finalAssignment = newAssignment.copy(id = newDocument.id, createdAt = Date((newDocument.createdAt as Long) * 1000))
             Log.d(TAG, "Remote create successful. Replacing temp assignment $tempId with final id ${newDocument.id}")
             assignmentDao.deleteAssignmentById(tempId)
             assignmentDao.upsertAssignments(listOf(finalAssignment.toEntity()))
@@ -107,8 +116,9 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
     }
 
     override suspend fun completeAssignment(assignmentId: String): DataResult<Unit> {
+        val userId = account.get().id
         // Optimistically remove the assignment from the local database
-        val originalAssignmentEntity = assignmentDao.getPendingAssignments(account.get().id)
+        val originalAssignmentEntity = assignmentDao.getAssignments(userId)
             .map { list -> list.firstOrNull { it.id == assignmentId } }
             .first() ?: return DataResult.Error(Exception("Assignment not found locally"))
 
