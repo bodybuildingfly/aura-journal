@@ -30,7 +30,7 @@ fun AssignmentListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Assignments") },
+                title = { Text("Assignments") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

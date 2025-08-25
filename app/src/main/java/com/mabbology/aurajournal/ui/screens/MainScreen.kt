@@ -34,7 +34,7 @@ fun MainScreen(
     val partnersViewModel: PartnersViewModel = hiltViewModel()
     val profileState by profileViewModel.profileState.collectAsState()
 
-    val screens = listOf("My Journal", "My Notes")
+    val screens = listOf("Journal", "Notes")
     val icons = listOf(Icons.Default.Book, Icons.Default.EditNote)
 
     ModalNavigationDrawer(
@@ -99,7 +99,6 @@ fun MainScreen(
                     1 -> NoteListScreen(
                         navController = navController,
                         viewModel = noteViewModel
-                        // The profileState parameter has been removed from here
                     )
                 }
             }

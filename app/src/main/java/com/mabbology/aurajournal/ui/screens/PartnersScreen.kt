@@ -39,8 +39,6 @@ fun PartnersScreen(
     val partnersState by partnersViewModel.state.collectAsState()
     val profileState by profileViewModel.profileState.collectAsState()
 
-    // This effect observes the screen's lifecycle. When the screen is resumed
-    // (i.e., when you navigate to it), it re-fetches the data from the server.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -89,7 +87,7 @@ fun PartnersScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Text("My Partners", style = MaterialTheme.typography.titleMedium)
+                Text("Partners", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
             }
             if (partnersState.partners.isEmpty()) {

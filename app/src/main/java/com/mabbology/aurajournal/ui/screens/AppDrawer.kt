@@ -54,8 +54,8 @@ fun AppDrawer(
         )
         if (isSubmissive) {
             NavigationDrawerItem(
-                icon = { Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = "My Assignments") },
-                label = { Text("My Assignments") },
+                icon = { Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = "Assignments") },
+                label = { Text("Assignments") },
                 selected = false,
                 onClick = {
                     navController.navigate("assignmentList")
