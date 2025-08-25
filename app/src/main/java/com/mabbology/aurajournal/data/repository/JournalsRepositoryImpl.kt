@@ -40,7 +40,7 @@ class JournalsRepositoryImpl @Inject constructor(
         return journalDao.getJournalByIdStream(id).map { it?.toJournal() }
     }
 
-    override suspend fun syncJournalEntries(): DataResult<Unit> {
+    override suspend fun getRemoteJournals(): DataResult<List<Journal>> {
         return try {
             val user = account.get()
             val response = databases.listDocuments(
@@ -67,85 +67,77 @@ class JournalsRepositoryImpl @Inject constructor(
                     mood = document.data["mood"] as? String
                 )
             }
-            Log.d(TAG, "Sync successful. Found ${journals.size} journals. Clearing local cache.")
-            journalDao.clearJournals()
-            journalDao.upsertJournals(journals.map { it.toEntity() })
-            DataResult.Success(Unit)
+            DataResult.Success(journals)
         } catch (e: Exception) {
             Log.e(TAG, "Sync failed: ${e.message}")
             DataResult.Error(e)
         }
     }
 
-    override suspend fun createJournalEntry(title: String, content: String, type: String, partnerId: String?, mood: String?): DataResult<Unit> {
-        val user = account.get()
-        val documentData = mutableMapOf<String, Any>(
-            "userId" to user.id,
-            "title" to title,
-            "content" to content,
-            "type" to type
-        )
-        partnerId?.let { documentData["partnerId"] = it }
-        mood?.let { documentData["mood"] = it }
+    override suspend fun clearLocalJournals() {
+        journalDao.clearJournals()
+    }
 
-        if (type == "shared" && partnerId != null) {
-            return try {
-                // ... shared entry logic
-                DataResult.Success(Unit)
-            } catch (e: Exception) {
-                DataResult.Error(e)
-            }
-        }
+    override suspend fun upsertLocalJournals(journals: List<Journal>) {
+        journalDao.upsertJournals(journals.map { it.toEntity() })
+    }
 
-        val tempId = "local_${UUID.randomUUID()}"
-        val newJournal = Journal(
-            id = tempId,
-            userId = user.id,
-            title = title,
-            content = content,
-            createdAt = OffsetDateTime.now().toString(),
-            type = type,
-            partnerId = null,
-            mood = mood
-        )
-        Log.d(TAG, "Optimistic Create: Inserting temporary local journal with id $tempId")
-        journalDao.upsertJournals(listOf(newJournal.toEntity()))
+    override suspend fun getLocalJournalById(id: String): Journal? {
+        return journalDao.getJournalById(id)?.toJournal()
+    }
 
+    override suspend fun insertLocalJournal(journal: Journal) {
+        journalDao.upsertJournals(listOf(journal.toEntity()))
+    }
+
+    override suspend fun deleteLocalJournalById(id: String) {
+        journalDao.deleteJournalById(id)
+    }
+
+    override suspend fun createRemoteJournal(journal: Journal): DataResult<Journal> {
         return try {
+            val user = account.get()
+            val documentData = mutableMapOf<String, Any>(
+                "userId" to user.id,
+                "title" to journal.title,
+                "content" to journal.content,
+                "type" to journal.type
+            )
+            journal.partnerId?.let { documentData["partnerId"] = it }
+            journal.mood?.let { documentData["mood"] = it }
+
+            val permissions = if (journal.type == "shared" && journal.partnerId != null) {
+                listOf(
+                    Permission.read(Role.user(user.id)),
+                    Permission.update(Role.user(user.id)),
+                    Permission.delete(Role.user(user.id)),
+                    Permission.read(Role.user(journal.partnerId)),
+                    Permission.update(Role.user(journal.partnerId))
+                )
+            } else {
+                listOf(
+                    Permission.read(Role.user(user.id)),
+                    Permission.update(Role.user(user.id)),
+                    Permission.delete(Role.user(user.id))
+                )
+            }
+
             val newDocument = databases.createDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
                 documentId = "unique()",
                 data = documentData,
-                permissions = listOf(
-                    Permission.read(Role.user(user.id)),
-                    Permission.update(Role.user(user.id)),
-                    Permission.delete(Role.user(user.id))
-                )
+                permissions = permissions
             )
-            val finalJournal = newJournal.copy(id = newDocument.id, createdAt = newDocument.createdAt)
-            Log.d(TAG, "Remote create successful. Replacing temp journal $tempId with final id ${newDocument.id}")
-            journalDao.deleteJournalById(tempId)
-            journalDao.upsertJournals(listOf(finalJournal.toEntity()))
-            DataResult.Success(Unit)
+            val finalJournal = journal.copy(id = newDocument.id, createdAt = newDocument.createdAt)
+            DataResult.Success(finalJournal)
         } catch (e: Exception) {
-            Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
-            journalDao.deleteJournalById(tempId)
             DataResult.Error(e)
         }
     }
 
-    override suspend fun updateJournalEntry(id: String, title: String, content: String): DataResult<Unit> {
-        val originalJournalEntity = journalDao.getJournalById(id) ?: return DataResult.Error(Exception("Journal not found"))
-        val updatedJournalEntity = originalJournalEntity.copy(title = title, content = content)
-
-        Log.d(TAG, "Optimistic Update: Updating local journal with id $id")
-        journalDao.upsertJournals(listOf(updatedJournalEntity))
-
+    override suspend fun updateRemoteJournal(id: String, title: String, content: String): DataResult<Unit> {
         return try {
-            //
-            // CORRECTED DATA TYPE HERE
-            //
             val data = mapOf<String, Any>(
                 "title" to title,
                 "content" to content
@@ -156,32 +148,21 @@ class JournalsRepositoryImpl @Inject constructor(
                 documentId = id,
                 data = data
             )
-            Log.d(TAG, "Remote update successful for journal $id")
             DataResult.Success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Remote update failed. Rolling back local update for $id. Error: ${e.message}")
-            journalDao.upsertJournals(listOf(originalJournalEntity))
             DataResult.Error(e)
         }
     }
 
-    override suspend fun deleteJournalEntry(id: String): DataResult<Unit> {
-        val originalJournalEntity = journalDao.getJournalById(id) ?: return DataResult.Error(Exception("Journal not found"))
-
-        Log.d(TAG, "Optimistic Delete: Deleting local journal with id $id")
-        journalDao.deleteJournalById(id)
-
+    override suspend fun deleteRemoteJournal(id: String): DataResult<Unit> {
         return try {
             databases.deleteDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
                 documentId = id
             )
-            Log.d(TAG, "Remote delete successful for journal $id")
             DataResult.Success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Remote delete failed. Rolling back local delete for $id. Error: ${e.message}")
-            journalDao.upsertJournals(listOf(originalJournalEntity))
             DataResult.Error(e)
         }
     }

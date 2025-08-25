@@ -7,8 +7,13 @@ import kotlinx.coroutines.flow.Flow
 interface JournalsRepository {
     fun getJournalEntries(): Flow<List<Journal>>
     fun getJournalEntryStream(id: String): Flow<Journal?>
-    suspend fun syncJournalEntries(): DataResult<Unit>
-    suspend fun createJournalEntry(title: String, content: String, type: String, partnerId: String?, mood: String?): DataResult<Unit>
-    suspend fun updateJournalEntry(id: String, title: String, content: String): DataResult<Unit>
-    suspend fun deleteJournalEntry(id: String): DataResult<Unit>
+    suspend fun getRemoteJournals(): DataResult<List<Journal>>
+    suspend fun clearLocalJournals()
+    suspend fun upsertLocalJournals(journals: List<Journal>)
+    suspend fun getLocalJournalById(id: String): Journal?
+    suspend fun insertLocalJournal(journal: Journal)
+    suspend fun deleteLocalJournalById(id: String)
+    suspend fun createRemoteJournal(journal: Journal): DataResult<Journal>
+    suspend fun updateRemoteJournal(id: String, title: String, content: String): DataResult<Unit>
+    suspend fun deleteRemoteJournal(id: String): DataResult<Unit>
 }

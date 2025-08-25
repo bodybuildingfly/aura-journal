@@ -5,8 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.model.Journal
-import com.mabbology.aurajournal.domain.repository.JournalAssignmentsRepository
-import com.mabbology.aurajournal.domain.repository.JournalsRepository
+import com.mabbology.aurajournal.domain.use_case.journal.JournalUseCases
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -42,8 +41,7 @@ data class SelectedJournalState(
 
 @HiltViewModel
 class JournalViewModel @Inject constructor(
-    private val journalsRepository: JournalsRepository,
-    private val assignmentsRepository: JournalAssignmentsRepository
+    private val journalUseCases: JournalUseCases
 ) : ViewModel() {
 
     private val _journalListState = MutableStateFlow(JournalListState())
@@ -65,7 +63,7 @@ class JournalViewModel @Inject constructor(
 
     private fun observeJournals() {
         viewModelScope.launch {
-            journalsRepository.getJournalEntries()
+            journalUseCases.getJournals()
                 .catch { _ -> _journalListState.update { it.copy(error = "Failed to load journals from cache.") } }
                 .collect { journals -> _journalListState.update { it.copy(journals = journals) } }
         }
@@ -81,7 +79,7 @@ class JournalViewModel @Inject constructor(
             try {
                 Log.d(TAG, "Starting journal sync.")
                 _journalListState.update { it.copy(isLoading = true) }
-                when (journalsRepository.syncJournalEntries()) {
+                when (journalUseCases.syncJournals()) {
                     is DataResult.Error -> _journalListState.update { it.copy(error = "Failed to sync journals.") }
                     is DataResult.Success -> {
                         // No-op, UI will update via Flow
@@ -98,7 +96,7 @@ class JournalViewModel @Inject constructor(
     fun createJournalEntry(title: String, content: String, type: String, partnerId: String?, mood: String?) {
         _journalEditorState.value = JournalEditorState(isSaving = true)
         viewModelScope.launch {
-            when (val result = journalsRepository.createJournalEntry(title, content, type, partnerId, mood)) {
+            when (val result = journalUseCases.createJournal(title, content, type, partnerId, mood)) {
                 is DataResult.Success -> {
                     _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
                     if (type == "shared") {
@@ -116,21 +114,14 @@ class JournalViewModel @Inject constructor(
     fun completeAssignment(assignmentId: String, title: String, content: String, partnerId: String?, mood: String?) {
         _journalEditorState.value = JournalEditorState(isSaving = true)
         viewModelScope.launch {
-            when (val journalResult = journalsRepository.createJournalEntry(title, content, "shared", partnerId, mood)) {
+            when (val result = journalUseCases.completeAssignmentAndCreateJournal(assignmentId, title, content, partnerId, mood)) {
                 is DataResult.Success -> {
-                    when (val assignmentResult = assignmentsRepository.completeAssignment(assignmentId)) {
-                        is DataResult.Success -> {
-                            _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
-                            delay(1000)
-                            syncJournals()
-                        }
-                        is DataResult.Error -> {
-                            _journalEditorState.value = JournalEditorState(error = "Failed to complete assignment.", isSaving = false)
-                        }
-                    }
+                    _journalEditorState.value = JournalEditorState(isSaveSuccess = true)
+                    delay(1000)
+                    syncJournals()
                 }
                 is DataResult.Error -> {
-                    _journalEditorState.value = JournalEditorState(error = journalResult.exception.message, isSaving = false)
+                    _journalEditorState.value = JournalEditorState(error = result.exception.message, isSaving = false)
                 }
             }
         }
@@ -139,7 +130,7 @@ class JournalViewModel @Inject constructor(
     fun updateJournalEntry(id: String, title: String, content: String) {
         _journalEditorState.value = JournalEditorState(isSaving = true, isSaveSuccess = true)
         viewModelScope.launch {
-            when (journalsRepository.updateJournalEntry(id, title, content)) {
+            when (journalUseCases.updateJournal(id, title, content)) {
                 is DataResult.Error -> {
                     _journalListState.update { it.copy(error = "Failed to save changes. Your edit has been reverted.") }
                 }
@@ -153,7 +144,7 @@ class JournalViewModel @Inject constructor(
     fun deleteJournalEntry(id: String) {
         _selectedJournalState.update { it.copy(isDeleted = true) }
         viewModelScope.launch {
-            when (journalsRepository.deleteJournalEntry(id)) {
+            when (journalUseCases.deleteJournal(id)) {
                 is DataResult.Error -> {
                     _journalListState.update { it.copy(error = "Failed to delete entry. It has been restored.") }
                 }
@@ -168,7 +159,7 @@ class JournalViewModel @Inject constructor(
         journalObserverJob?.cancel()
         _selectedJournalState.update { it.copy(isLoading = true) }
         journalObserverJob = viewModelScope.launch {
-            journalsRepository.getJournalEntryStream(id)
+            journalUseCases.getJournal(id)
                 .catch { _ -> _selectedJournalState.update { it.copy(error = "Failed to load journal.", isLoading = false) } }
                 .collect { journal ->
                     _selectedJournalState.update { it.copy(journal = journal, isLoading = false) }
