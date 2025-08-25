@@ -44,49 +44,72 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncRequests(): DataResult<Unit> {
+        Log.d(TAG, "syncRequests: Starting partner requests sync")
         return try {
             val user = account.get()
+            Log.d(TAG, "syncRequests: Current user ID: ${user.id}")
+
+            Log.d(TAG, "syncRequests: Fetching incoming requests")
             val incomingResponse = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.PARTNER_REQUESTS_COLLECTION_ID,
                 queries = listOf(Query.equal("dominantId", user.id), Query.equal("status", "pending"))
             )
+            Log.d(TAG, "syncRequests: Found ${incomingResponse.total} incoming requests from server.")
+
+            Log.d(TAG, "syncRequests: Fetching outgoing requests")
             val outgoingResponse = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.PARTNER_REQUESTS_COLLECTION_ID,
                 queries = listOf(Query.equal("submissiveId", user.id), Query.equal("status", "pending"))
             )
+            Log.d(TAG, "syncRequests: Found ${outgoingResponse.total} outgoing requests from server.")
+
 
             val remoteIncoming = incomingResponse.documents.mapNotNull { doc ->
                 val submissiveId = doc.data["submissiveId"] as String
+                Log.d(TAG, "syncRequests: Processing incoming request ${doc.id}. Fetching profile for submissive $submissiveId")
                 when(val profileResult = userProfilesRepository.getUserProfile(submissiveId)) {
                     is DataResult.Success -> {
                         profileResult.data?.let { profile ->
+                            Log.d(TAG, "syncRequests: Successfully fetched profile for ${profile.displayName}")
                             PartnerRequest(doc.id, doc.data["dominantId"] as String, submissiveId, doc.data["status"] as String, profile.displayName)
                         }
                     }
-                    is DataResult.Error -> null
+                    is DataResult.Error -> {
+                        Log.e(TAG, "syncRequests: Failed to fetch profile for submissive $submissiveId. Error: ${profileResult.exception}")
+                        null
+                    }
                 }
             }
 
             val remoteOutgoing = outgoingResponse.documents.mapNotNull { doc ->
                 val dominantId = doc.data["dominantId"] as String
+                Log.d(TAG, "syncRequests: Processing outgoing request ${doc.id}. Fetching profile for dominant $dominantId")
                 when(val profileResult = userProfilesRepository.getUserProfile(dominantId)) {
                     is DataResult.Success -> {
                         profileResult.data?.let { profile ->
+                            Log.d(TAG, "syncRequests: Successfully fetched profile for ${profile.displayName}")
                             PartnerRequest(doc.id, dominantId, doc.data["submissiveId"] as String, doc.data["status"] as String, profile.displayName)
                         }
                     }
-                    is DataResult.Error -> null
+                    is DataResult.Error -> {
+                        Log.e(TAG, "syncRequests: Failed to fetch profile for dominant $dominantId. Error: ${profileResult.exception}")
+                        null
+                    }
                 }
             }
 
             val allRequests = remoteIncoming + remoteOutgoing
+            Log.d(TAG, "syncRequests: Total requests successfully processed: ${allRequests.size}. Clearing local DAO.")
             partnerRequestDao.clearRequests()
+            Log.d(TAG, "syncRequests: Inserting ${allRequests.size} requests into local DAO.")
             partnerRequestDao.upsertRequests(allRequests.map { it.toEntity() })
 
+            Log.d(TAG, "syncRequests: Partner requests sync completed successfully.")
             DataResult.Success(Unit)
         } catch (e: Exception) {
+            Log.e(TAG, "syncRequests: An error occurred during partner requests sync", e)
             DataResult.Error(e)
         }
     }

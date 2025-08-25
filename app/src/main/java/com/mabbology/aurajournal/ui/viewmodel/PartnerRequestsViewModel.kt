@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.model.PartnerRequest
 import com.mabbology.aurajournal.domain.repository.PartnerRequestsRepository
+import com.mabbology.aurajournal.domain.repository.PartnersRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +26,8 @@ data class PartnerRequestsState(
 
 @HiltViewModel
 class PartnerRequestsViewModel @Inject constructor(
-    private val repository: PartnerRequestsRepository
+    private val repository: PartnerRequestsRepository,
+    private val partnersRepository: PartnersRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(PartnerRequestsState())
@@ -72,6 +74,7 @@ class PartnerRequestsViewModel @Inject constructor(
                 is DataResult.Success -> {
                     _state.update { it.copy(requestApproved = true) }
                     syncRequests()
+                    partnersRepository.syncPartners()
                 }
                 is DataResult.Error -> _state.update { it.copy(error = "Failed to approve request.", approvingRequestId = null) }
             }
