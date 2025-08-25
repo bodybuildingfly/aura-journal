@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
 import com.google.gson.Gson
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.data.local.JournalDao
 import com.mabbology.aurajournal.data.local.toEntity
 import com.mabbology.aurajournal.data.local.toJournal
@@ -39,7 +40,7 @@ class JournalsRepositoryImpl @Inject constructor(
         return journalDao.getJournalByIdStream(id).map { it?.toJournal() }
     }
 
-    override suspend fun syncJournalEntries(): Result<Unit> {
+    override suspend fun syncJournalEntries(): DataResult<Unit> {
         return try {
             val user = account.get()
             val response = databases.listDocuments(
@@ -69,14 +70,14 @@ class JournalsRepositoryImpl @Inject constructor(
             Log.d(TAG, "Sync successful. Found ${journals.size} journals. Clearing local cache.")
             journalDao.clearJournals()
             journalDao.upsertJournals(journals.map { it.toEntity() })
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Sync failed: ${e.message}")
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun createJournalEntry(title: String, content: String, type: String, partnerId: String?, mood: String?): Result<Unit> {
+    override suspend fun createJournalEntry(title: String, content: String, type: String, partnerId: String?, mood: String?): DataResult<Unit> {
         val user = account.get()
         val documentData = mutableMapOf<String, Any>(
             "userId" to user.id,
@@ -90,9 +91,9 @@ class JournalsRepositoryImpl @Inject constructor(
         if (type == "shared" && partnerId != null) {
             return try {
                 // ... shared entry logic
-                Result.success(Unit)
+                DataResult.Success(Unit)
             } catch (e: Exception) {
-                Result.failure(e)
+                DataResult.Error(e)
             }
         }
 
@@ -126,16 +127,16 @@ class JournalsRepositoryImpl @Inject constructor(
             Log.d(TAG, "Remote create successful. Replacing temp journal $tempId with final id ${newDocument.id}")
             journalDao.deleteJournalById(tempId)
             journalDao.upsertJournals(listOf(finalJournal.toEntity()))
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
             journalDao.deleteJournalById(tempId)
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun updateJournalEntry(id: String, title: String, content: String): Result<Unit> {
-        val originalJournalEntity = journalDao.getJournalById(id) ?: return Result.failure(Exception("Journal not found"))
+    override suspend fun updateJournalEntry(id: String, title: String, content: String): DataResult<Unit> {
+        val originalJournalEntity = journalDao.getJournalById(id) ?: return DataResult.Error(Exception("Journal not found"))
         val updatedJournalEntity = originalJournalEntity.copy(title = title, content = content)
 
         Log.d(TAG, "Optimistic Update: Updating local journal with id $id")
@@ -156,16 +157,16 @@ class JournalsRepositoryImpl @Inject constructor(
                 data = data
             )
             Log.d(TAG, "Remote update successful for journal $id")
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Remote update failed. Rolling back local update for $id. Error: ${e.message}")
             journalDao.upsertJournals(listOf(originalJournalEntity))
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun deleteJournalEntry(id: String): Result<Unit> {
-        val originalJournalEntity = journalDao.getJournalById(id) ?: return Result.failure(Exception("Journal not found"))
+    override suspend fun deleteJournalEntry(id: String): DataResult<Unit> {
+        val originalJournalEntity = journalDao.getJournalById(id) ?: return DataResult.Error(Exception("Journal not found"))
 
         Log.d(TAG, "Optimistic Delete: Deleting local journal with id $id")
         journalDao.deleteJournalById(id)
@@ -177,11 +178,11 @@ class JournalsRepositoryImpl @Inject constructor(
                 documentId = id
             )
             Log.d(TAG, "Remote delete successful for journal $id")
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Remote delete failed. Rolling back local delete for $id. Error: ${e.message}")
             journalDao.upsertJournals(listOf(originalJournalEntity))
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 }

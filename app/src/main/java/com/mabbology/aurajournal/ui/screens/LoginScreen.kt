@@ -19,6 +19,7 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val authState by viewModel.authState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(authState.isAuthenticated) {
         if (authState.isAuthenticated) {
@@ -29,40 +30,47 @@ fun LoginScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") }
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            visualTransformation = PasswordVisualTransformation()
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { viewModel.login(email, password) }) {
-            Text("Login")
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        TextButton(onClick = { navController.navigate("register") }) {
-            Text("Don't have an account? Register")
-        }
-
-        if (authState.isLoading) {
-            CircularProgressIndicator()
-        }
-
+    LaunchedEffect(authState.error) {
         authState.error?.let {
-            Text(text = it, color = MaterialTheme.colorScheme.error)
+            snackbarHostState.showSnackbar(message = it)
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email") }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                visualTransformation = PasswordVisualTransformation()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = { viewModel.login(email, password) }) {
+                Text("Login")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(onClick = { navController.navigate("register") }) {
+                Text("Don't have an account? Register")
+            }
+
+            if (authState.isLoading) {
+                CircularProgressIndicator()
+            }
         }
     }
 }

@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.model.Note
 import com.mabbology.aurajournal.domain.repository.NotesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -65,9 +66,11 @@ class NoteViewModel @Inject constructor(
     fun syncNotes() {
         viewModelScope.launch {
             _noteListState.update { it.copy(isLoading = true) }
-            val result = notesRepository.syncNotes()
-            if (result.isFailure) {
-                _noteListState.update { it.copy(error = "Failed to sync notes.") }
+            when (notesRepository.syncNotes()) {
+                is DataResult.Error -> _noteListState.update { it.copy(error = "Failed to sync notes.") }
+                is DataResult.Success -> {
+                    // No-op
+                }
             }
             _noteListState.update { it.copy(isLoading = false) }
         }
@@ -76,15 +79,17 @@ class NoteViewModel @Inject constructor(
     fun createNote(title: String, content: String, type: String, partnerId: String?) {
         _noteEditorState.value = NoteEditorState(isSaving = true)
         viewModelScope.launch {
-            val result = notesRepository.createNote(title, content, type, partnerId)
-            if (result.isSuccess) {
-                _noteEditorState.value = NoteEditorState(isSaveSuccess = true)
-                if (type == "shared") {
-                    delay(1000)
-                    syncNotes()
+            when (val result = notesRepository.createNote(title, content, type, partnerId)) {
+                is DataResult.Success -> {
+                    _noteEditorState.value = NoteEditorState(isSaveSuccess = true)
+                    if (type == "shared") {
+                        delay(1000)
+                        syncNotes()
+                    }
                 }
-            } else {
-                _noteEditorState.value = NoteEditorState(error = result.exceptionOrNull()?.message, isSaving = false)
+                is DataResult.Error -> {
+                    _noteEditorState.value = NoteEditorState(error = result.exception.message, isSaving = false)
+                }
             }
         }
     }
@@ -92,9 +97,13 @@ class NoteViewModel @Inject constructor(
     fun updateNote(id: String, title: String, content: String) {
         _noteEditorState.value = NoteEditorState(isSaving = true, isSaveSuccess = true)
         viewModelScope.launch {
-            val result = notesRepository.updateNote(id, title, content)
-            if (result.isFailure) {
-                _noteListState.update { it.copy(error = "Failed to save changes. Your edit has been reverted.") }
+            when (notesRepository.updateNote(id, title, content)) {
+                is DataResult.Error -> {
+                    _noteListState.update { it.copy(error = "Failed to save changes. Your edit has been reverted.") }
+                }
+                is DataResult.Success -> {
+                    // No-op
+                }
             }
         }
     }
@@ -102,9 +111,13 @@ class NoteViewModel @Inject constructor(
     fun deleteNote(id: String) {
         _selectedNoteState.update { it.copy(isDeleted = true) }
         viewModelScope.launch {
-            val result = notesRepository.deleteNote(id)
-            if (result.isFailure) {
-                _noteListState.update { it.copy(error = "Failed to delete note. It has been restored.") }
+            when (notesRepository.deleteNote(id)) {
+                is DataResult.Error -> {
+                    _noteListState.update { it.copy(error = "Failed to delete note. It has been restored.") }
+                }
+                is DataResult.Success -> {
+                    // No-op
+                }
             }
         }
     }

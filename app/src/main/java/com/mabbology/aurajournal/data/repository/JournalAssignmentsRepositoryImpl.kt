@@ -1,6 +1,7 @@
 package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.data.local.JournalAssignmentDao
 import com.mabbology.aurajournal.data.local.toEntity
 import com.mabbology.aurajournal.data.local.toJournalAssignment
@@ -33,7 +34,7 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun syncAssignments(): Result<Unit> {
+    override suspend fun syncAssignments(): DataResult<Unit> {
         return try {
             val user = account.get()
             val response = databases.listDocuments(
@@ -56,13 +57,13 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
             }
             assignmentDao.clearAssignments()
             assignmentDao.upsertAssignments(assignments.map { it.toEntity() })
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun createAssignment(submissiveId: String, prompt: String): Result<Unit> {
+    override suspend fun createAssignment(submissiveId: String, prompt: String): DataResult<Unit> {
         val user = account.get()
         val tempId = "local_${UUID.randomUUID()}"
         val newAssignment = JournalAssignment(
@@ -97,19 +98,19 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
             Log.d(TAG, "Remote create successful. Replacing temp assignment $tempId with final id ${newDocument.id}")
             assignmentDao.deleteAssignmentById(tempId)
             assignmentDao.upsertAssignments(listOf(finalAssignment.toEntity()))
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
             assignmentDao.deleteAssignmentById(tempId)
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun completeAssignment(assignmentId: String): Result<Unit> {
+    override suspend fun completeAssignment(assignmentId: String): DataResult<Unit> {
         // Optimistically remove the assignment from the local database
         val originalAssignmentEntity = assignmentDao.getPendingAssignments(account.get().id)
             .map { list -> list.firstOrNull { it.id == assignmentId } }
-            .first() ?: return Result.failure(Exception("Assignment not found locally"))
+            .first() ?: return DataResult.Error(Exception("Assignment not found locally"))
 
         Log.d(TAG, "Optimistic Complete: Deleting local assignment with id $assignmentId")
         assignmentDao.deleteAssignmentById(assignmentId)
@@ -123,12 +124,12 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
                 data = mapOf("status" to "completed")
             )
             Log.d(TAG, "Remote complete successful for assignment $assignmentId")
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             // If remote update fails, roll back the local change
             Log.e(TAG, "Remote complete failed. Rolling back local delete for $assignmentId. Error: ${e.message}")
             assignmentDao.upsertAssignments(listOf(originalAssignmentEntity))
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 }

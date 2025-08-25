@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
 import com.google.gson.Gson
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.data.local.PartnerRequestDao
 import com.mabbology.aurajournal.data.local.toEntity
 import com.mabbology.aurajournal.data.local.toPartnerRequest
@@ -42,7 +43,7 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun syncRequests(): Result<Unit> {
+    override suspend fun syncRequests(): DataResult<Unit> {
         return try {
             val user = account.get()
             val incomingResponse = databases.listDocuments(
@@ -58,15 +59,25 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
 
             val remoteIncoming = incomingResponse.documents.mapNotNull { doc ->
                 val submissiveId = doc.data["submissiveId"] as String
-                userProfilesRepository.getUserProfile(submissiveId).getOrNull()?.let { profile ->
-                    PartnerRequest(doc.id, doc.data["dominantId"] as String, submissiveId, doc.data["status"] as String, profile.displayName)
+                when(val profileResult = userProfilesRepository.getUserProfile(submissiveId)) {
+                    is DataResult.Success -> {
+                        profileResult.data?.let { profile ->
+                            PartnerRequest(doc.id, doc.data["dominantId"] as String, submissiveId, doc.data["status"] as String, profile.displayName)
+                        }
+                    }
+                    is DataResult.Error -> null
                 }
             }
 
             val remoteOutgoing = outgoingResponse.documents.mapNotNull { doc ->
                 val dominantId = doc.data["dominantId"] as String
-                userProfilesRepository.getUserProfile(dominantId).getOrNull()?.let { profile ->
-                    PartnerRequest(doc.id, dominantId, doc.data["submissiveId"] as String, doc.data["status"] as String, profile.displayName)
+                when(val profileResult = userProfilesRepository.getUserProfile(dominantId)) {
+                    is DataResult.Success -> {
+                        profileResult.data?.let { profile ->
+                            PartnerRequest(doc.id, dominantId, doc.data["submissiveId"] as String, doc.data["status"] as String, profile.displayName)
+                        }
+                    }
+                    is DataResult.Error -> null
                 }
             }
 
@@ -74,14 +85,18 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
             partnerRequestDao.clearRequests()
             partnerRequestDao.upsertRequests(allRequests.map { it.toEntity() })
 
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun sendPartnerRequest(dominantId: String, submissiveId: String): Result<Unit> {
-        val dominantProfile = userProfilesRepository.getUserProfile(dominantId).getOrNull() ?: return Result.failure(Exception("Dominant profile not found"))
+    override suspend fun sendPartnerRequest(dominantId: String, submissiveId: String): DataResult<Unit> {
+        val dominantProfileResult = userProfilesRepository.getUserProfile(dominantId)
+        val dominantProfile = when (dominantProfileResult) {
+            is DataResult.Success -> dominantProfileResult.data ?: return DataResult.Error(Exception("Dominant profile not found"))
+            is DataResult.Error -> return dominantProfileResult
+        }
 
         val tempId = "local_${UUID.randomUUID()}"
         val newRequest = PartnerRequest(
@@ -99,25 +114,25 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
             functions.createExecution(functionId = AppwriteConstants.CONNECTION_REQUESTS_FUNCTION_ID, body = payload)
             // We don't need the remote ID, so we just sync to get the final version
             syncRequests()
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
             partnerRequestDao.deleteRequestById(tempId)
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun approveRequest(request: PartnerRequest): Result<Unit> {
+    override suspend fun approveRequest(request: PartnerRequest): DataResult<Unit> {
         return try {
             val payload = Gson().toJson(mapOf("requestId" to request.id, "dominantId" to request.dominantId, "submissiveId" to request.submissiveId))
             functions.createExecution(functionId = AppwriteConstants.APPROVE_CONNECTION_REQUEST_FUNCTION_ID, body = payload)
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun rejectRequest(requestId: String): Result<Unit> {
+    override suspend fun rejectRequest(requestId: String): DataResult<Unit> {
         return try {
             databases.updateDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
@@ -125,9 +140,9 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
                 documentId = requestId,
                 data = mapOf("status" to "rejected")
             )
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 }

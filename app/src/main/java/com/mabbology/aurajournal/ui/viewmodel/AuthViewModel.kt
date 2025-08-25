@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,10 +30,9 @@ class AuthViewModel @Inject constructor(
 
     private fun checkSession() {
         viewModelScope.launch {
-            val result = authRepository.checkSessionStatus()
-            _authState.value = when {
-                result.isSuccess -> AuthState(isAuthenticated = true, isLoading = false)
-                else -> AuthState(isAuthenticated = false, isLoading = false)
+            when (authRepository.checkSessionStatus()) {
+                is DataResult.Success -> _authState.value = AuthState(isAuthenticated = true, isLoading = false)
+                is DataResult.Error -> _authState.value = AuthState(isAuthenticated = false, isLoading = false)
             }
         }
     }
@@ -40,10 +40,9 @@ class AuthViewModel @Inject constructor(
     fun register(email: String, password: String, name: String) {
         viewModelScope.launch {
             _authState.value = AuthState(isLoading = true)
-            val result = authRepository.register(email, password, name)
-            _authState.value = when {
-                result.isSuccess -> AuthState(isAuthenticated = true)
-                else -> AuthState(error = result.exceptionOrNull()?.message)
+            when (val result = authRepository.register(email, password, name)) {
+                is DataResult.Success -> _authState.value = AuthState(isAuthenticated = true)
+                is DataResult.Error -> _authState.value = AuthState(error = result.exception.message)
             }
         }
     }
@@ -51,10 +50,9 @@ class AuthViewModel @Inject constructor(
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _authState.value = AuthState(isLoading = true)
-            val result = authRepository.login(email, password)
-            _authState.value = when {
-                result.isSuccess -> AuthState(isAuthenticated = true)
-                else -> AuthState(error = result.exceptionOrNull()?.message)
+            when (val result = authRepository.login(email, password)) {
+                is DataResult.Success -> _authState.value = AuthState(isAuthenticated = true)
+                is DataResult.Error -> _authState.value = AuthState(error = result.exception.message)
             }
         }
     }

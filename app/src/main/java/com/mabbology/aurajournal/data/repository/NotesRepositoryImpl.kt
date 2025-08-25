@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
 import com.google.gson.Gson
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.data.local.NoteDao
 import com.mabbology.aurajournal.data.local.toEntity
 import com.mabbology.aurajournal.data.local.toNote
@@ -39,7 +40,7 @@ class NotesRepositoryImpl @Inject constructor(
         return noteDao.getNoteByIdStream(id).map { it?.toNote() }
     }
 
-    override suspend fun syncNotes(): Result<Unit> {
+    override suspend fun syncNotes(): DataResult<Unit> {
         return try {
             val user = account.get()
             val response = databases.listDocuments(
@@ -66,13 +67,13 @@ class NotesRepositoryImpl @Inject constructor(
             }
             noteDao.clearNotes()
             noteDao.upsertNotes(notes.map { it.toEntity() })
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun createNote(title: String, content: String, type: String, partnerId: String?): Result<Unit> {
+    override suspend fun createNote(title: String, content: String, type: String, partnerId: String?): DataResult<Unit> {
         val user = account.get()
         val documentData = mutableMapOf<String, Any>(
             "ownerId" to user.id,
@@ -85,9 +86,9 @@ class NotesRepositoryImpl @Inject constructor(
         if (type == "shared" && partnerId != null) {
             return try {
                 // ... shared entry logic
-                Result.success(Unit)
+                DataResult.Success(Unit)
             } catch (e: Exception) {
-                Result.failure(e)
+                DataResult.Error(e)
             }
         }
 
@@ -119,16 +120,16 @@ class NotesRepositoryImpl @Inject constructor(
             Log.d(TAG, "Remote create successful. Replacing temp note $tempId with final id ${newDocument.id}")
             noteDao.deleteNoteById(tempId)
             noteDao.upsertNotes(listOf(finalNote.toEntity()))
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
             noteDao.deleteNoteById(tempId)
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun updateNote(id: String, title: String, content: String): Result<Unit> {
-        val originalNoteEntity = noteDao.getNoteById(id) ?: return Result.failure(Exception("Note not found"))
+    override suspend fun updateNote(id: String, title: String, content: String): DataResult<Unit> {
+        val originalNoteEntity = noteDao.getNoteById(id) ?: return DataResult.Error(Exception("Note not found"))
         val updatedNoteEntity = originalNoteEntity.copy(title = title, content = content)
 
         Log.d(TAG, "Optimistic Update: Updating local note with id $id")
@@ -146,16 +147,16 @@ class NotesRepositoryImpl @Inject constructor(
                 data = data
             )
             Log.d(TAG, "Remote update successful for note $id")
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Remote update failed. Rolling back local update for $id. Error: ${e.message}")
             noteDao.upsertNotes(listOf(originalNoteEntity))
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun deleteNote(id: String): Result<Unit> {
-        val originalNoteEntity = noteDao.getNoteById(id) ?: return Result.failure(Exception("Note not found"))
+    override suspend fun deleteNote(id: String): DataResult<Unit> {
+        val originalNoteEntity = noteDao.getNoteById(id) ?: return DataResult.Error(Exception("Note not found"))
 
         Log.d(TAG, "Optimistic Delete: Deleting local note with id $id")
         noteDao.deleteNoteById(id)
@@ -167,11 +168,11 @@ class NotesRepositoryImpl @Inject constructor(
                 documentId = id
             )
             Log.d(TAG, "Remote delete successful for note $id")
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Remote delete failed. Rolling back local delete for $id. Error: ${e.message}")
             noteDao.upsertNotes(listOf(originalNoteEntity))
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 }

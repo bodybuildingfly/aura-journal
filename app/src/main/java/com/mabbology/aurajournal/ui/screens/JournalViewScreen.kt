@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
 import java.time.OffsetDateTime
@@ -20,8 +21,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun JournalViewScreen(
     navController: NavController,
-    viewModel: JournalViewModel,
-    journalId: String?
+    journalId: String?,
+    viewModel: JournalViewModel = hiltViewModel()
 ) {
     val selectedJournalState by viewModel.selectedJournalState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }

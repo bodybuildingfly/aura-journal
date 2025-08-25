@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.model.PartnerRequest
 import com.mabbology.aurajournal.domain.repository.PartnerRequestsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -54,9 +55,11 @@ class PartnerRequestsViewModel @Inject constructor(
     fun syncRequests() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
-            val result = repository.syncRequests()
-            if (result.isFailure) {
-                _state.value = _state.value.copy(error = "Failed to sync requests with the server.")
+            when (repository.syncRequests()) {
+                is DataResult.Error -> _state.value = _state.value.copy(error = "Failed to sync requests with the server.")
+                is DataResult.Success -> {
+                    // No-op
+                }
             }
             _state.value = _state.value.copy(isLoading = false)
         }
@@ -65,12 +68,12 @@ class PartnerRequestsViewModel @Inject constructor(
     fun approveRequest(request: PartnerRequest) {
         viewModelScope.launch {
             _state.update { it.copy(approvingRequestId = request.id) }
-            val result = repository.approveRequest(request)
-            if (result.isSuccess) {
-                _state.update { it.copy(requestApproved = true) }
-                syncRequests()
-            } else {
-                _state.update { it.copy(error = "Failed to approve request.", approvingRequestId = null) }
+            when (repository.approveRequest(request)) {
+                is DataResult.Success -> {
+                    _state.update { it.copy(requestApproved = true) }
+                    syncRequests()
+                }
+                is DataResult.Error -> _state.update { it.copy(error = "Failed to approve request.", approvingRequestId = null) }
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.mabbology.aurajournal.data.repository
 
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.data.local.PartnerDao
 import com.mabbology.aurajournal.data.local.toEntity
 import com.mabbology.aurajournal.data.local.toPartner
@@ -27,7 +28,7 @@ class PartnersRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun syncPartners(): Result<Unit> {
+    override suspend fun syncPartners(): DataResult<Unit> {
         return try {
             val user = account.get()
             val response = databases.listDocuments(
@@ -50,9 +51,9 @@ class PartnersRepositoryImpl @Inject constructor(
                 val dominantProfileResult = userProfilesRepository.getUserProfile(dominantId)
                 val submissiveProfileResult = userProfilesRepository.getUserProfile(submissiveId)
 
-                if (dominantProfileResult.isSuccess && submissiveProfileResult.isSuccess) {
-                    val dominantName = dominantProfileResult.getOrNull()?.displayName ?: "Unknown"
-                    val submissiveName = submissiveProfileResult.getOrNull()?.displayName ?: "Unknown"
+                if (dominantProfileResult is DataResult.Success && submissiveProfileResult is DataResult.Success) {
+                    val dominantName = dominantProfileResult.data?.displayName ?: "Unknown"
+                    val submissiveName = submissiveProfileResult.data?.displayName ?: "Unknown"
 
                     Partner(
                         id = doc.id,
@@ -67,9 +68,9 @@ class PartnersRepositoryImpl @Inject constructor(
             }
             partnerDao.clearPartners()
             partnerDao.upsertPartners(remotePartners.map { it.toEntity() })
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 }

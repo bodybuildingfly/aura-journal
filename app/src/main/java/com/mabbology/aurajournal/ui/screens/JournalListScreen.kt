@@ -10,14 +10,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.Journal
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
@@ -30,16 +29,25 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun JournalListScreen(
     navController: NavController,
-    viewModel: JournalViewModel,
     profileState: ProfileState,
-    partnersViewModel: PartnersViewModel
+    partnersViewModel: PartnersViewModel,
+    viewModel: JournalViewModel = hiltViewModel()
 ) {
     val journalListState by viewModel.journalListState.collectAsState()
     val partnersState by partnersViewModel.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val submissivePartners = partnersState.partners.filter { it.dominantId == profileState.userId }
 
+    LaunchedEffect(journalListState.error) {
+        journalListState.error?.let {
+            snackbarHostState.showSnackbar(message = it)
+            viewModel.clearJournalListError()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {
                 if (submissivePartners.isNotEmpty()) {

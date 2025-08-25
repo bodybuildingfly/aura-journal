@@ -1,5 +1,6 @@
 package com.mabbology.aurajournal.ui.screens
 
+import android.R.attr.type
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,10 +49,8 @@ fun NavGraph(
             "journalView/{journalId}",
             arguments = listOf(navArgument("journalId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val viewModel: JournalViewModel = hiltViewModel()
             JournalViewScreen(
                 navController = navController,
-                viewModel = viewModel,
                 journalId = backStackEntry.arguments?.getString("journalId")
             )
         }
@@ -72,10 +71,8 @@ fun NavGraph(
                 }
             )
         ) { backStackEntry ->
-            val viewModel: JournalViewModel = hiltViewModel()
             JournalEditorScreen(
                 navController = navController,
-                viewModel = viewModel,
                 journalId = backStackEntry.arguments?.getString("journalId"),
                 assignmentId = backStackEntry.arguments?.getString("assignmentId"),
                 prompt = backStackEntry.arguments?.getString("prompt")

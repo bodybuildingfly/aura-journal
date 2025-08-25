@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.model.Partner
 import com.mabbology.aurajournal.domain.repository.PartnersRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,9 +48,13 @@ class PartnersViewModel @Inject constructor(
     fun syncPartners() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
-            val result = repository.syncPartners()
-            if (result.isFailure) {
-                _state.value = _state.value.copy(error = "Failed to sync partners with the server.")
+            when (repository.syncPartners()) {
+                is DataResult.Error -> {
+                    _state.value = _state.value.copy(error = "Failed to sync partners with the server.")
+                }
+                is DataResult.Success -> {
+                    // No-op, UI will update via flow
+                }
             }
             _state.value = _state.value.copy(isLoading = false)
         }

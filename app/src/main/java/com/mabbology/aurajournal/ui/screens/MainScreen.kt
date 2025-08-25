@@ -29,7 +29,6 @@ fun MainScreen(
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-    val journalViewModel: JournalViewModel = hiltViewModel()
     val noteViewModel: NoteViewModel = hiltViewModel()
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val partnersViewModel: PartnersViewModel = hiltViewModel()
@@ -94,7 +93,6 @@ fun MainScreen(
                 when (page) {
                     0 -> JournalListScreen(
                         navController = navController,
-                        viewModel = journalViewModel,
                         profileState = profileState,
                         partnersViewModel = partnersViewModel
                     )

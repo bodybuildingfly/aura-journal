@@ -1,6 +1,7 @@
 package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.di.AppwriteConstants
 import com.mabbology.aurajournal.domain.model.UserProfile
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
@@ -15,7 +16,7 @@ class UserProfilesRepositoryImpl @Inject constructor(
     private val account: Account      // And Account directly
 ) : UserProfilesRepository {
 
-    override suspend fun getUserProfiles(): Result<List<UserProfile>> {
+    override suspend fun getUserProfiles(): DataResult<List<UserProfile>> {
         return try {
             val currentUser = account.get()
             val response = databases.listDocuments(
@@ -32,34 +33,36 @@ class UserProfilesRepositoryImpl @Inject constructor(
                 }
                 .filter { it.userId != currentUser.id }
 
-            Result.success(profiles)
+            DataResult.Success(profiles)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun searchUserProfiles(query: String): Result<List<UserProfile>> {
+    override suspend fun searchUserProfiles(query: String): DataResult<List<UserProfile>> {
         return try {
-            val profilesResult = getUserProfiles()
-            if (profilesResult.isSuccess) {
-                val profiles = profilesResult.getOrThrow()
-                val filteredProfiles = if (query.isBlank()) {
-                    profiles
-                } else {
-                    profiles.filter {
-                        it.displayName.contains(query, ignoreCase = true)
+            when (val profilesResult = getUserProfiles()) {
+                is DataResult.Success -> {
+                    val profiles = profilesResult.data
+                    val filteredProfiles = if (query.isBlank()) {
+                        profiles
+                    } else {
+                        profiles.filter {
+                            it.displayName.contains(query, ignoreCase = true)
+                        }
                     }
+                    DataResult.Success(filteredProfiles)
                 }
-                Result.success(filteredProfiles)
-            } else {
-                Result.failure(profilesResult.exceptionOrNull() ?: Exception("Unknown error searching profiles"))
+                is DataResult.Error -> {
+                    DataResult.Error(profilesResult.exception)
+                }
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun createUserProfile(userId: String, displayName: String): Result<Unit> {
+    override suspend fun createUserProfile(userId: String, displayName: String): DataResult<Unit> {
         Log.d(TAG, "Attempting to create profile for userId: $userId")
         return try {
             databases.createDocument(
@@ -72,14 +75,14 @@ class UserProfilesRepositoryImpl @Inject constructor(
                 )
             )
             Log.d(TAG, "Successfully created profile for userId: $userId")
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Error creating user profile: ${e.message}", e)
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun getCurrentUserProfile(): Result<UserProfile?> {
+    override suspend fun getCurrentUserProfile(): DataResult<UserProfile?> {
         return try {
             val user = account.get()
             val document = databases.getDocument(
@@ -92,13 +95,13 @@ class UserProfilesRepositoryImpl @Inject constructor(
                 displayName = document.data["displayName"] as String,
                 avatarUrl = document.data["avatarUrl"] as? String
             )
-            Result.success(userProfile)
+            DataResult.Success(userProfile)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun getUserProfile(userId: String): Result<UserProfile?> {
+    override suspend fun getUserProfile(userId: String): DataResult<UserProfile?> {
         return try {
             val document = databases.getDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
@@ -110,9 +113,9 @@ class UserProfilesRepositoryImpl @Inject constructor(
                 displayName = document.data["displayName"] as String,
                 avatarUrl = document.data["avatarUrl"] as? String
             )
-            Result.success(userProfile)
+            DataResult.Success(userProfile)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 }

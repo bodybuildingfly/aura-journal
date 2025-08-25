@@ -20,6 +20,7 @@ fun RegistrationScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val authState by viewModel.authState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(authState.isAuthenticated) {
         if (authState.isAuthenticated) {
@@ -30,42 +31,49 @@ fun RegistrationScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Display Name") }
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") }
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            visualTransformation = PasswordVisualTransformation()
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { viewModel.register(email, password, name) }) {
-            Text("Register")
-        }
-
-        if (authState.isLoading) {
-            CircularProgressIndicator()
-        }
-
+    LaunchedEffect(authState.error) {
         authState.error?.let {
-            Text(text = it, color = MaterialTheme.colorScheme.error)
+            snackbarHostState.showSnackbar(message = it)
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Display Name") }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email") }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                visualTransformation = PasswordVisualTransformation()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = { viewModel.register(email, password, name) }) {
+                Text("Register")
+            }
+
+            if (authState.isLoading) {
+                CircularProgressIndicator()
+            }
         }
     }
 }

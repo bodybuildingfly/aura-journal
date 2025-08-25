@@ -24,17 +24,18 @@ import com.mabbology.aurajournal.ui.viewmodel.ProfileViewModel
 @Composable
 fun JournalEditorScreen(
     navController: NavController,
-    viewModel: JournalViewModel,
     partnersViewModel: PartnersViewModel = hiltViewModel(),
     profileViewModel: ProfileViewModel = hiltViewModel(),
     journalId: String? = null,
     assignmentId: String? = null,
-    prompt: String? = null
+    prompt: String? = null,
+    viewModel: JournalViewModel = hiltViewModel()
 ) {
     val editorState by viewModel.journalEditorState.collectAsState()
     val selectedJournalState by viewModel.selectedJournalState.collectAsState()
     val partnersState by partnersViewModel.state.collectAsState()
     val profileState by profileViewModel.profileState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var title by remember { mutableStateOf(prompt ?: "") }
     var content by remember { mutableStateOf("") }
@@ -72,7 +73,15 @@ fun JournalEditorScreen(
         }
     }
 
+    LaunchedEffect(editorState.error) {
+        editorState.error?.let {
+            snackbarHostState.showSnackbar(message = it)
+            viewModel.resetEditorState()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(if (journalId == null) "New Entry" else "Edit Entry") },

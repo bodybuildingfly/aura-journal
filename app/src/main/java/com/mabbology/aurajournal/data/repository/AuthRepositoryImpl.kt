@@ -1,6 +1,7 @@
 package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.repository.AuthRepository
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import io.appwrite.services.Account
@@ -13,16 +14,16 @@ class AuthRepositoryImpl @Inject constructor(
     private val userProfilesRepository: UserProfilesRepository
 ) : AuthRepository {
 
-    override suspend fun checkSessionStatus(): Result<Unit> {
+    override suspend fun checkSessionStatus(): DataResult<Unit> {
         return try {
             account.get()
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun register(email: String, password: String, name: String): Result<Unit> {
+    override suspend fun register(email: String, password: String, name: String): DataResult<Unit> {
         return try {
             val user = account.create(
                 userId = "unique()",
@@ -39,45 +40,50 @@ class AuthRepositoryImpl @Inject constructor(
 
             val profileResult = userProfilesRepository.createUserProfile(userId = user.id, displayName = name)
 
-            if (profileResult.isFailure) {
-                Log.e(TAG, "Profile creation failed after registration.")
-                return Result.failure(profileResult.exceptionOrNull() ?: Exception("Profile creation failed."))
+            when (profileResult) {
+                is DataResult.Error -> {
+                    Log.e(TAG, "Profile creation failed after registration.")
+                    return DataResult.Error(profileResult.exception)
+                }
+                is DataResult.Success -> {
+                    // All good
+                }
             }
 
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Error during registration: ${e.message}", e)
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun login(email: String, password: String): Result<Unit> {
+    override suspend fun login(email: String, password: String): DataResult<Unit> {
         return try {
             account.createEmailPasswordSession(
                 email = email,
                 password = password
             )
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun logout(): Result<Unit> {
+    override suspend fun logout(): DataResult<Unit> {
         return try {
             account.deleteSession("current")
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 
-    override suspend fun updatePassword(password: String, oldPassword: String): Result<Unit> {
+    override suspend fun updatePassword(password: String, oldPassword: String): DataResult<Unit> {
         return try {
             account.updatePassword(password = password, oldPassword = oldPassword)
-            Result.success(Unit)
+            DataResult.Success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            DataResult.Error(e)
         }
     }
 }

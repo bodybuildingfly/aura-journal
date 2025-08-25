@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.model.JournalAssignment
 import com.mabbology.aurajournal.domain.repository.JournalAssignmentsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Collections.emptyList
 import javax.inject.Inject
 
 data class JournalAssignmentState(
@@ -35,7 +37,7 @@ class JournalAssignmentViewModel @Inject constructor(
     private fun observeAssignments() {
         viewModelScope.launch {
             repository.getPendingAssignments()
-                .catch { e -> _state.update { it.copy(error = "Failed to load assignments from cache.") } }
+                .catch { _ -> _state.update { it.copy(error = "Failed to load assignments from cache.") } }
                 .collect { assignments -> _state.update { it.copy(assignments = assignments) } }
         }
     }
@@ -43,9 +45,11 @@ class JournalAssignmentViewModel @Inject constructor(
     fun syncAssignments() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
-            val result = repository.syncAssignments()
-            if (result.isFailure) {
-                _state.update { it.copy(error = "Failed to sync assignments.") }
+            when (repository.syncAssignments()) {
+                is DataResult.Error -> _state.update { it.copy(error = "Failed to sync assignments.") }
+                is DataResult.Success -> {
+                    // No-op
+                }
             }
             _state.update { it.copy(isLoading = false) }
         }
@@ -57,10 +61,14 @@ class JournalAssignmentViewModel @Inject constructor(
 
         // Launch the actual save operation in the background.
         viewModelScope.launch {
-            val result = repository.createAssignment(submissiveId, prompt)
-            if (result.isFailure) {
-                // If the background save fails, notify the user.
-                _state.update { it.copy(error = "Failed to create assignment. It has been removed.") }
+            when (repository.createAssignment(submissiveId, prompt)) {
+                is DataResult.Error -> {
+                    // If the background save fails, notify the user.
+                    _state.update { it.copy(error = "Failed to create assignment. It has been removed.") }
+                }
+                is DataResult.Success -> {
+                    // No-op
+                }
             }
             // Reset the loading and created flags when the operation is complete.
             _state.update { it.copy(isLoading = false, assignmentCreated = false) }

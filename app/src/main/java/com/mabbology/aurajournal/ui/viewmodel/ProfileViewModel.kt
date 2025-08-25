@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.repository.AuthRepository
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,26 +35,24 @@ class ProfileViewModel @Inject constructor(
     private fun loadUserProfile() {
         viewModelScope.launch {
             _profileState.value = ProfileState(isLoading = true)
-            val result = userProfilesRepository.getCurrentUserProfile()
-            _profileState.value = when {
-                result.isSuccess -> {
-                    val profile = result.getOrNull()
-                    ProfileState(
+            when (val result = userProfilesRepository.getCurrentUserProfile()) {
+                is DataResult.Success -> {
+                    val profile = result.data
+                    _profileState.value = ProfileState(
                         userId = profile?.userId ?: "",
                         displayName = profile?.displayName ?: "User"
                     )
                 }
-                else -> ProfileState(error = "Failed to load profile.")
+                is DataResult.Error -> _profileState.value = ProfileState(error = "Failed to load profile.")
             }
         }
     }
 
     fun updatePassword(password: String, oldPassword: String) {
         viewModelScope.launch {
-            val result = authRepository.updatePassword(password, oldPassword)
-            _profileState.value = when {
-                result.isSuccess -> _profileState.value.copy(successMessage = "Password updated successfully!")
-                else -> _profileState.value.copy(error = "Failed to update password.")
+            when (authRepository.updatePassword(password, oldPassword)) {
+                is DataResult.Success -> _profileState.value = _profileState.value.copy(successMessage = "Password updated successfully!")
+                is DataResult.Error -> _profileState.value = _profileState.value.copy(error = "Failed to update password.")
             }
         }
     }
