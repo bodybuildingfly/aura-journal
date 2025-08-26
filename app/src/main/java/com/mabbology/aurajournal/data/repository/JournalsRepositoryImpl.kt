@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.data.local.JournalDao
@@ -16,8 +17,10 @@ import io.appwrite.Role
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
 import io.appwrite.services.Functions
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -97,46 +100,86 @@ class JournalsRepositoryImpl @Inject constructor(
         journalDao.deleteJournalById(id)
     }
 
-    override suspend fun createRemoteJournal(journal: Journal): DataResult<Journal> = withContext(dispatcherProvider.io) {
-        try {
-            val user = account.get()
-            val documentData = mutableMapOf<String, Any>(
-                "userId" to user.id,
-                "title" to journal.title,
-                "content" to journal.content,
-                "type" to journal.type
-            )
-            journal.partnerId?.let { documentData["partnerId"] = it }
-            journal.mood?.let { documentData["mood"] = it }
+    override suspend fun createRemoteJournal(journal: Journal): DataResult<Journal> {
+        // This function now implements the optimistic update.
+        // It returns immediately with the temporary journal and syncs in the background.
+        val tempId = journal.id
 
-            val permissions = if (journal.type == "shared" && journal.partnerId != null) {
-                listOf(
-                    Permission.read(Role.user(user.id)),
-                    Permission.update(Role.user(user.id)),
-                    Permission.delete(Role.user(user.id)),
-                    Permission.read(Role.user(journal.partnerId)),
-                    Permission.update(Role.user(journal.partnerId))
+        CoroutineScope(dispatcherProvider.io).launch {
+            try {
+                val user = account.get()
+                val documentData = mutableMapOf<String, Any>(
+                    "userId" to user.id,
+                    "title" to journal.title,
+                    "content" to journal.content,
+                    "type" to journal.type
                 )
-            } else {
-                listOf(
-                    Permission.read(Role.user(user.id)),
-                    Permission.update(Role.user(user.id)),
-                    Permission.delete(Role.user(user.id))
+                journal.partnerId?.let { documentData["partnerId"] = it }
+                journal.mood?.let { documentData["mood"] = it }
+
+                val permissions = if (journal.type == "shared" && journal.partnerId != null) {
+                    setOf(
+                        Permission.read(Role.user(user.id)),
+                        Permission.update(Role.user(user.id)),
+                        Permission.delete(Role.user(user.id)),
+                        Permission.read(Role.user(journal.partnerId)),
+                        Permission.update(Role.user(journal.partnerId))
+                    ).toList()
+                } else {
+                    listOf(
+                        Permission.read(Role.user(user.id)),
+                        Permission.update(Role.user(user.id)),
+                        Permission.delete(Role.user(user.id))
+                    )
+                }
+
+                val payload = mapOf(
+                    "databaseId" to AppwriteConstants.DATABASE_ID,
+                    "collectionId" to AppwriteConstants.JOURNALS_COLLECTION_ID,
+                    "documentData" to documentData,
+                    "permissions" to permissions
                 )
+
+                val execution = functions.createExecution(
+                    functionId = AppwriteConstants.CREATE_DOCUMENT_FUNCTION_ID,
+                    body = Gson().toJson(payload)
+                )
+
+                if (execution.status == "completed") {
+                    val responseBody = execution.responseBody
+                    val responseType = object : TypeToken<Map<String, Any>>() {}.type
+                    val responseMap: Map<String, Any> = Gson().fromJson(responseBody, responseType)
+
+                    if (responseMap["success"] == true) {
+                        @Suppress("UNCHECKED_CAST")
+                        val documentMap = responseMap["document"] as? Map<String, Any>
+                        val newDocumentId = documentMap?.get("\$id") as? String
+                        val newDocumentCreatedAt = documentMap?.get("\$createdAt") as? String
+
+                        if (newDocumentId != null && newDocumentCreatedAt != null) {
+                            val finalJournal = journal.copy(id = newDocumentId, createdAt = newDocumentCreatedAt)
+                            // Atomically replace the temporary entry with the final one
+                            deleteLocalJournalById(tempId)
+                            insertLocalJournal(finalJournal)
+                        } else {
+                            throw Exception("Server function response is missing document details.")
+                        }
+                    } else {
+                        val message = responseMap["message"] as? String ?: "Unknown error from server function"
+                        throw Exception("Server function failed: $message")
+                    }
+                } else {
+                    throw Exception("Function execution failed with status: ${execution.status}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in background journal sync: ${e.message}", e)
+                // If anything fails, remove the temporary local entry to avoid orphaned data.
+                deleteLocalJournalById(tempId)
             }
-
-            val newDocument = databases.createDocument(
-                databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,
-                documentId = "unique()",
-                data = documentData,
-                permissions = permissions
-            )
-            val finalJournal = journal.copy(id = newDocument.id, createdAt = newDocument.createdAt)
-            DataResult.Success(finalJournal)
-        } catch (e: Exception) {
-            DataResult.Error(e)
         }
+
+        // Return immediately with the temporary journal to unblock the UI.
+        return DataResult.Success(journal)
     }
 
     override suspend fun updateRemoteJournal(id: String, title: String, content: String): DataResult<Unit> = withContext(dispatcherProvider.io) {

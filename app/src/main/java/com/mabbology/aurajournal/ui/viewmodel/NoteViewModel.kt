@@ -81,11 +81,8 @@ class NoteViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = notesRepository.createNote(title, content, type, partnerId)) {
                 is DataResult.Success -> {
+                    // The UI is now unblocked immediately because the repository returns the temporary note.
                     _noteEditorState.value = NoteEditorState(isSaveSuccess = true)
-                    if (type == "shared") {
-                        delay(1000)
-                        syncNotes()
-                    }
                 }
                 is DataResult.Error -> {
                     _noteEditorState.value = NoteEditorState(error = result.exception.message, isSaving = false)

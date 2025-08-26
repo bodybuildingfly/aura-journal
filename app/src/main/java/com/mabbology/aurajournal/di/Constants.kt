@@ -15,7 +15,7 @@ object AppwriteConstants {
     // Server Functions
     const val CONNECTION_REQUESTS_FUNCTION_ID = "68a91e40002d2320bddf"
     const val APPROVE_CONNECTION_REQUEST_FUNCTION_ID = "68aae9cf002976e664ca"
-    const val CREATE_SHARED_DOCUMENT_FUNCTION_ID = "68a9bd0d00151578e1fe"
+    const val CREATE_DOCUMENT_FUNCTION_ID = "68acfa1600340fc2d7da"
     const val REMOVE_PARTNER_FUNCTION_ID = "68adca6d002f40772242"
 
 }

@@ -104,7 +104,7 @@ fun NoteEditorScreen(
                 ) {
                     Switch(checked = isShared, onCheckedChange = { isShared = it })
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (isSubmissive) "Submit as Offering" else "Share with partner")
+                    Text("Share with partner")
                 }
             }
 

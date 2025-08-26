@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.data.local.NoteDao
@@ -16,10 +17,11 @@ import io.appwrite.Role
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
 import io.appwrite.services.Functions
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.OffsetDateTime
 import java.util.UUID
 import javax.inject.Inject
 
@@ -76,60 +78,90 @@ class NotesRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun createNote(title: String, content: String, type: String, partnerId: String?): DataResult<Unit> = withContext(dispatcherProvider.io) {
+    override suspend fun createNote(title: String, content: String, type: String, partnerId: String?): DataResult<Note> {
         val user = account.get()
-        val documentData = mutableMapOf<String, Any>(
-            "ownerId" to user.id,
-            "title" to title,
-            "content" to content,
-            "type" to type
-        )
-        partnerId?.let { documentData["partnerId"] = it }
-
-        if (type == "shared" && partnerId != null) {
-            return@withContext try {
-                // ... shared entry logic
-                DataResult.Success(Unit)
-            } catch (e: Exception) {
-                DataResult.Error(e)
-            }
-        }
-
         val tempId = "local_${UUID.randomUUID()}"
         val newNote = Note(
             id = tempId,
             ownerId = user.id,
-            partnerId = null,
+            partnerId = partnerId,
             title = title,
             content = content,
             type = type
         )
-        Log.d(TAG, "Optimistic Create: Inserting temporary local note with id $tempId")
+
         noteDao.upsertNotes(listOf(newNote.toEntity()))
 
-        try {
-            val newDocument = databases.createDocument(
-                databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.NOTES_COLLECTION_ID,
-                documentId = "unique()",
-                data = documentData,
-                permissions = listOf(
-                    Permission.read(Role.user(user.id)),
-                    Permission.update(Role.user(user.id)),
-                    Permission.delete(Role.user(user.id))
+        CoroutineScope(dispatcherProvider.io).launch {
+            try {
+                val documentData = mutableMapOf<String, Any>(
+                    "ownerId" to user.id,
+                    "title" to title,
+                    "content" to content,
+                    "type" to type
                 )
-            )
-            val finalNote = newNote.copy(id = newDocument.id)
-            Log.d(TAG, "Remote create successful. Replacing temp note $tempId with final id ${newDocument.id}")
-            noteDao.deleteNoteById(tempId)
-            noteDao.upsertNotes(listOf(finalNote.toEntity()))
-            DataResult.Success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
-            noteDao.deleteNoteById(tempId)
-            DataResult.Error(e)
+                partnerId?.let { documentData["partnerId"] = it }
+
+                val permissions = if (type == "shared" && partnerId != null) {
+                    setOf(
+                        Permission.read(Role.user(user.id)),
+                        Permission.update(Role.user(user.id)),
+                        Permission.delete(Role.user(user.id)),
+                        Permission.read(Role.user(partnerId)),
+                        Permission.update(Role.user(partnerId))
+                    ).toList()
+                } else {
+                    listOf(
+                        Permission.read(Role.user(user.id)),
+                        Permission.update(Role.user(user.id)),
+                        Permission.delete(Role.user(user.id))
+                    )
+                }
+
+                val payload = mapOf(
+                    "databaseId" to AppwriteConstants.DATABASE_ID,
+                    "collectionId" to AppwriteConstants.NOTES_COLLECTION_ID,
+                    "documentData" to documentData,
+                    "permissions" to permissions
+                )
+
+                val execution = functions.createExecution(
+                    functionId = AppwriteConstants.CREATE_DOCUMENT_FUNCTION_ID,
+                    body = Gson().toJson(payload)
+                )
+
+                if (execution.status == "completed") {
+                    val responseBody = execution.responseBody
+                    val responseType = object : TypeToken<Map<String, Any>>() {}.type
+                    val responseMap: Map<String, Any> = Gson().fromJson(responseBody, responseType)
+
+                    if (responseMap["success"] == true) {
+                        @Suppress("UNCHECKED_CAST")
+                        val documentMap = responseMap["document"] as? Map<String, Any>
+                        val newDocumentId = documentMap?.get("\$id") as? String
+
+                        if (newDocumentId != null) {
+                            val finalNote = newNote.copy(id = newDocumentId)
+                            noteDao.deleteNoteById(tempId)
+                            noteDao.upsertNotes(listOf(finalNote.toEntity()))
+                        } else {
+                            throw Exception("Server function response is missing document details.")
+                        }
+                    } else {
+                        val message = responseMap["message"] as? String ?: "Unknown error from server function"
+                        throw Exception("Server function failed: $message")
+                    }
+                } else {
+                    throw Exception("Function execution failed with status: ${execution.status}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in background note sync: ${e.message}", e)
+                noteDao.deleteNoteById(tempId)
+            }
         }
+        return DataResult.Success(newNote)
     }
+
 
     override suspend fun updateNote(id: String, title: String, content: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
         val originalNoteEntity = noteDao.getNoteById(id) ?: return@withContext DataResult.Error(Exception("Note not found"))
