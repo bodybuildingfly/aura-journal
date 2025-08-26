@@ -28,7 +28,7 @@ fun UserListScreen(
     val userListState by viewModel.userListState.collectAsState()
     val partnersState by partnersViewModel.state.collectAsState()
     val requestsState by requestsViewModel.state.collectAsState()
-    var searchQuery by remember { mutableStateOf("") }
+    val searchQuery by viewModel.searchQuery.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(userListState.requestSentMessage) {
@@ -37,7 +37,6 @@ fun UserListScreen(
             // After the message is shown, sync the requests to update the UI
             requestsViewModel.syncRequests()
             viewModel.clearRequestSentMessage()
-            // The call to the removed onApplicationSentHandled() function is no longer needed.
         }
     }
 
@@ -61,10 +60,9 @@ fun UserListScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = {
-                    searchQuery = it
-                    viewModel.searchUserProfiles(it)
+                    viewModel.onSearchQueryChanged(it)
                 },
-                label = { Text("Search by name") },
+                label = { Text("Search by email") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)

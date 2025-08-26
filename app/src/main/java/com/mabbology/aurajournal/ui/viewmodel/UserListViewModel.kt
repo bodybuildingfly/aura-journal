@@ -7,9 +7,7 @@ import com.mabbology.aurajournal.domain.model.UserProfile
 import com.mabbology.aurajournal.domain.repository.PartnerRequestsRepository
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -29,26 +27,35 @@ class UserListViewModel @Inject constructor(
     private val _userListState = MutableStateFlow(UserListState())
     val userListState: StateFlow<UserListState> = _userListState
 
-    init {
-        loadUserProfiles()
-    }
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
 
-    private fun loadUserProfiles() {
+    init {
         viewModelScope.launch {
-            _userListState.value = UserListState(isLoading = true)
-            when (val result = userProfilesRepository.getUserProfiles()) {
-                is DataResult.Success -> _userListState.value = UserListState(users = result.data)
-                is DataResult.Error -> _userListState.value = UserListState(error = result.exception.message)
-            }
+            _searchQuery
+                .debounce(500L) // Wait for 500ms of inactivity
+                .distinctUntilChanged() // Only search if the text has changed
+                .collect { query ->
+                    if (query.isNotBlank()) {
+                        performSearch(query)
+                    } else {
+                        // Clear the user list when the query is empty
+                        _userListState.update { it.copy(users = emptyList(), isLoading = false) }
+                    }
+                }
         }
     }
 
-    fun searchUserProfiles(query: String) {
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+    }
+
+    private fun performSearch(query: String) {
         viewModelScope.launch {
-            _userListState.value = _userListState.value.copy(isLoading = true)
+            _userListState.update { it.copy(isLoading = true) }
             when (val result = userProfilesRepository.searchUserProfiles(query)) {
-                is DataResult.Success -> _userListState.value = _userListState.value.copy(isLoading = false, users = result.data)
-                is DataResult.Error -> _userListState.value = _userListState.value.copy(isLoading = false, error = result.exception.message)
+                is DataResult.Success -> _userListState.update { it.copy(isLoading = false, users = result.data) }
+                is DataResult.Error -> _userListState.update { it.copy(isLoading = false, error = result.exception.message) }
             }
         }
     }
@@ -63,8 +70,6 @@ class UserListViewModel @Inject constructor(
                         return@launch
                     }
 
-                    // The repository now handles the optimistic update.
-                    // We just call the function and trust the UI to react.
                     when (partnerRequestsRepository.sendPartnerRequest(dominantId, submissiveId)) {
                         is DataResult.Success -> {
                             _userListState.update { it.copy(requestSentMessage = "Application sent!") }

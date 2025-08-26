@@ -49,19 +49,8 @@ fun JournalListScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End) {
-                if (submissivePartners.isNotEmpty()) {
-                    val submissiveToAssign = submissivePartners.first()
-                    FloatingActionButton(
-                        onClick = { navController.navigate("createAssignment/${submissiveToAssign.submissiveId}") },
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    ) {
-                        // Icon for assigning journal
-                    }
-                }
-                FloatingActionButton(onClick = { navController.navigate("journalEditor") }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Journal Entry")
-                }
+            FloatingActionButton(onClick = { navController.navigate("journalEditor") }) {
+                Icon(Icons.Default.Add, contentDescription = "Add Journal Entry")
             }
         }
     ) { paddingValues ->

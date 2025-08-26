@@ -6,6 +6,7 @@ import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.di.AppwriteConstants
 import com.mabbology.aurajournal.domain.model.UserProfile
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
+import io.appwrite.Query
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
 import kotlinx.coroutines.withContext
@@ -20,17 +21,30 @@ class UserProfilesRepositoryImpl @Inject constructor(
 ) : UserProfilesRepository {
 
     override suspend fun getUserProfiles(): DataResult<List<UserProfile>> = withContext(dispatcherProvider.io) {
+        // Return an empty list by default to encourage searching
+        DataResult.Success(emptyList())
+    }
+
+    override suspend fun searchUserProfiles(query: String): DataResult<List<UserProfile>> = withContext(dispatcherProvider.io) {
+        if (query.isBlank()) {
+            return@withContext DataResult.Success(emptyList())
+        }
         try {
             val currentUser = account.get()
+            val queries = listOf(Query.equal("email", query))
+
             val response = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.USER_PROFILES_COLLECTION_ID
+                collectionId = AppwriteConstants.USER_PROFILES_COLLECTION_ID,
+                queries = queries
             )
+
             val profiles = response.documents
                 .map { document ->
                     UserProfile(
                         userId = document.data["userId"] as String,
                         displayName = document.data["displayName"] as String,
+                        email = document.data["email"] as? String,
                         avatarUrl = document.data["avatarUrl"] as? String
                     )
                 }
@@ -38,34 +52,12 @@ class UserProfilesRepositoryImpl @Inject constructor(
 
             DataResult.Success(profiles)
         } catch (e: Exception) {
+            Log.e(TAG, "Error searching user profiles: ${e.message}", e)
             DataResult.Error(e)
         }
     }
 
-    override suspend fun searchUserProfiles(query: String): DataResult<List<UserProfile>> = withContext(dispatcherProvider.io) {
-        try {
-            when (val profilesResult = getUserProfiles()) {
-                is DataResult.Success -> {
-                    val profiles = profilesResult.data
-                    val filteredProfiles = if (query.isBlank()) {
-                        profiles
-                    } else {
-                        profiles.filter {
-                            it.displayName.contains(query, ignoreCase = true)
-                        }
-                    }
-                    DataResult.Success(filteredProfiles)
-                }
-                is DataResult.Error -> {
-                    DataResult.Error(profilesResult.exception)
-                }
-            }
-        } catch (e: Exception) {
-            DataResult.Error(e)
-        }
-    }
-
-    override suspend fun createUserProfile(userId: String, displayName: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
+    override suspend fun createUserProfile(userId: String, displayName: String, email: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
         Log.d(TAG, "Attempting to create profile for userId: $userId")
         try {
             databases.createDocument(
@@ -74,7 +66,8 @@ class UserProfilesRepositoryImpl @Inject constructor(
                 documentId = userId,
                 data = mapOf(
                     "userId" to userId,
-                    "displayName" to displayName
+                    "displayName" to displayName,
+                    "email" to email
                 )
             )
             Log.d(TAG, "Successfully created profile for userId: $userId")
@@ -96,6 +89,7 @@ class UserProfilesRepositoryImpl @Inject constructor(
             val userProfile = UserProfile(
                 userId = document.data["userId"] as String,
                 displayName = document.data["displayName"] as String,
+                email = document.data["email"] as? String,
                 avatarUrl = document.data["avatarUrl"] as? String
             )
             DataResult.Success(userProfile)
@@ -114,6 +108,7 @@ class UserProfilesRepositoryImpl @Inject constructor(
             val userProfile = UserProfile(
                 userId = document.data["userId"] as String,
                 displayName = document.data["displayName"] as String,
+                email = document.data["email"] as? String,
                 avatarUrl = document.data["avatarUrl"] as? String
             )
             DataResult.Success(userProfile)

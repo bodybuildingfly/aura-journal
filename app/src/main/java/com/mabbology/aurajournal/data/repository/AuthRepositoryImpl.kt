@@ -41,7 +41,7 @@ class AuthRepositoryImpl @Inject constructor(
             )
             Log.d(TAG, "User registered and session created. Now creating profile...")
 
-            val profileResult = userProfilesRepository.createUserProfile(userId = user.id, displayName = name)
+            val profileResult = userProfilesRepository.createUserProfile(userId = user.id, displayName = name, email = email)
 
             when (profileResult) {
                 is DataResult.Error -> {
