@@ -1,5 +1,6 @@
 package com.mabbology.aurajournal.di
 
+import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.data.repository.*
 import com.mabbology.aurajournal.domain.repository.*
 import dagger.Module
@@ -21,18 +22,20 @@ object RepositoryModule {
     @Singleton
     fun provideAuthRepository(
         account: Account,
-        userProfilesRepository: UserProfilesRepository
+        userProfilesRepository: UserProfilesRepository,
+        dispatcherProvider: DispatcherProvider
     ): AuthRepository {
-        return AuthRepositoryImpl(account, userProfilesRepository)
+        return AuthRepositoryImpl(account, userProfilesRepository, dispatcherProvider)
     }
 
     @Provides
     @Singleton
     fun provideUserProfilesRepository(
         databases: Databases,
-        account: Account
+        account: Account,
+        dispatcherProvider: DispatcherProvider
     ): UserProfilesRepository {
-        return UserProfilesRepositoryImpl(databases, account)
+        return UserProfilesRepositoryImpl(databases, account, dispatcherProvider)
     }
 
     @Provides
@@ -41,9 +44,10 @@ object RepositoryModule {
         databases: Databases,
         account: Account,
         functions: Functions,
-        journalDao: com.mabbology.aurajournal.data.local.JournalDao
+        journalDao: com.mabbology.aurajournal.data.local.JournalDao,
+        dispatcherProvider: DispatcherProvider
     ): JournalsRepository {
-        return JournalsRepositoryImpl(databases, account, functions, journalDao)
+        return JournalsRepositoryImpl(databases, account, functions, journalDao, dispatcherProvider)
     }
 
     @Provides
@@ -53,9 +57,10 @@ object RepositoryModule {
         account: Account,
         functions: Functions,
         userProfilesRepository: UserProfilesRepository,
-        partnerRequestDao: com.mabbology.aurajournal.data.local.PartnerRequestDao
+        partnerRequestDao: com.mabbology.aurajournal.data.local.PartnerRequestDao,
+        dispatcherProvider: DispatcherProvider
     ): PartnerRequestsRepository {
-        return PartnerRequestsRepositoryImpl(databases, account, functions, userProfilesRepository, partnerRequestDao)
+        return PartnerRequestsRepositoryImpl(databases, account, functions, userProfilesRepository, partnerRequestDao, dispatcherProvider)
     }
 
     @Provides
@@ -65,9 +70,10 @@ object RepositoryModule {
         functions: Functions,
         account: Account,
         userProfilesRepository: UserProfilesRepository,
-        partnerDao: com.mabbology.aurajournal.data.local.PartnerDao
+        partnerDao: com.mabbology.aurajournal.data.local.PartnerDao,
+        dispatcherProvider: DispatcherProvider
     ): PartnersRepository {
-        return PartnersRepositoryImpl(databases, functions, account, userProfilesRepository, partnerDao)
+        return PartnersRepositoryImpl(databases, functions, account, userProfilesRepository, partnerDao, dispatcherProvider)
     }
 
     @Provides
@@ -76,9 +82,10 @@ object RepositoryModule {
         databases: Databases,
         account: Account,
         functions: Functions,
-        noteDao: com.mabbology.aurajournal.data.local.NoteDao
+        noteDao: com.mabbology.aurajournal.data.local.NoteDao,
+        dispatcherProvider: DispatcherProvider
     ): NotesRepository {
-        return NotesRepositoryImpl(databases, account, functions, noteDao)
+        return NotesRepositoryImpl(databases, account, functions, noteDao, dispatcherProvider)
     }
 
     @Provides
@@ -86,8 +93,9 @@ object RepositoryModule {
     fun provideJournalAssignmentsRepository(
         databases: Databases,
         account: Account,
-        assignmentDao: com.mabbology.aurajournal.data.local.JournalAssignmentDao
+        assignmentDao: com.mabbology.aurajournal.data.local.JournalAssignmentDao,
+        dispatcherProvider: DispatcherProvider
     ): JournalAssignmentsRepository {
-        return JournalAssignmentsRepositoryImpl(databases, account, assignmentDao)
+        return JournalAssignmentsRepositoryImpl(databases, account, assignmentDao, dispatcherProvider)
     }
 }

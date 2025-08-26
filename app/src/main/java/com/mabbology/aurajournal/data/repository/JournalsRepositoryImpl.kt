@@ -3,6 +3,7 @@ package com.mabbology.aurajournal.data.repository
 import android.util.Log
 import com.google.gson.Gson
 import com.mabbology.aurajournal.core.util.DataResult
+import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.data.local.JournalDao
 import com.mabbology.aurajournal.data.local.toEntity
 import com.mabbology.aurajournal.data.local.toJournal
@@ -17,6 +18,7 @@ import io.appwrite.services.Databases
 import io.appwrite.services.Functions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.time.OffsetDateTime
 import java.util.UUID
 import javax.inject.Inject
@@ -27,7 +29,8 @@ class JournalsRepositoryImpl @Inject constructor(
     private val databases: Databases,
     private val account: Account,
     private val functions: Functions,
-    private val journalDao: JournalDao
+    private val journalDao: JournalDao,
+    private val dispatcherProvider: DispatcherProvider
 ) : JournalsRepository {
 
     override fun getJournalEntries(): Flow<List<Journal>> {
@@ -40,8 +43,8 @@ class JournalsRepositoryImpl @Inject constructor(
         return journalDao.getJournalByIdStream(id).map { it?.toJournal() }
     }
 
-    override suspend fun getRemoteJournals(): DataResult<List<Journal>> {
-        return try {
+    override suspend fun getRemoteJournals(): DataResult<List<Journal>> = withContext(dispatcherProvider.io) {
+        try {
             val user = account.get()
             val response = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
@@ -74,28 +77,28 @@ class JournalsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun clearLocalJournals() {
+    override suspend fun clearLocalJournals() = withContext(dispatcherProvider.io) {
         journalDao.clearJournals()
     }
 
-    override suspend fun upsertLocalJournals(journals: List<Journal>) {
+    override suspend fun upsertLocalJournals(journals: List<Journal>) = withContext(dispatcherProvider.io) {
         journalDao.upsertJournals(journals.map { it.toEntity() })
     }
 
-    override suspend fun getLocalJournalById(id: String): Journal? {
-        return journalDao.getJournalById(id)?.toJournal()
+    override suspend fun getLocalJournalById(id: String): Journal? = withContext(dispatcherProvider.io) {
+        journalDao.getJournalById(id)?.toJournal()
     }
 
-    override suspend fun insertLocalJournal(journal: Journal) {
+    override suspend fun insertLocalJournal(journal: Journal) = withContext(dispatcherProvider.io) {
         journalDao.upsertJournals(listOf(journal.toEntity()))
     }
 
-    override suspend fun deleteLocalJournalById(id: String) {
+    override suspend fun deleteLocalJournalById(id: String) = withContext(dispatcherProvider.io) {
         journalDao.deleteJournalById(id)
     }
 
-    override suspend fun createRemoteJournal(journal: Journal): DataResult<Journal> {
-        return try {
+    override suspend fun createRemoteJournal(journal: Journal): DataResult<Journal> = withContext(dispatcherProvider.io) {
+        try {
             val user = account.get()
             val documentData = mutableMapOf<String, Any>(
                 "userId" to user.id,
@@ -136,8 +139,8 @@ class JournalsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateRemoteJournal(id: String, title: String, content: String): DataResult<Unit> {
-        return try {
+    override suspend fun updateRemoteJournal(id: String, title: String, content: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        try {
             val data = mapOf<String, Any>(
                 "title" to title,
                 "content" to content
@@ -154,8 +157,8 @@ class JournalsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteRemoteJournal(id: String): DataResult<Unit> {
-        return try {
+    override suspend fun deleteRemoteJournal(id: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        try {
             databases.deleteDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.JOURNALS_COLLECTION_ID,

@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
 import com.mabbology.aurajournal.core.util.DataResult
+import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.data.local.PartnerDao
 import com.mabbology.aurajournal.data.local.toEntity
 import com.mabbology.aurajournal.data.local.toPartner
@@ -16,6 +17,7 @@ import io.appwrite.services.Databases
 import io.appwrite.services.Functions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class PartnersRepositoryImpl @Inject constructor(
@@ -23,7 +25,8 @@ class PartnersRepositoryImpl @Inject constructor(
     private val functions: Functions,
     private val account: Account,
     private val userProfilesRepository: UserProfilesRepository,
-    private val partnerDao: PartnerDao
+    private val partnerDao: PartnerDao,
+    private val dispatcherProvider: DispatcherProvider
 ) : PartnersRepository {
 
     private val TAG = "PartnersRepositoryImpl"
@@ -36,9 +39,9 @@ class PartnersRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun syncPartners(): DataResult<Unit> {
+    override suspend fun syncPartners(): DataResult<Unit> = withContext(dispatcherProvider.io) {
         Log.d(TAG, "syncPartners: Starting partner sync")
-        return try {
+        try {
             val user = account.get()
             Log.d(TAG, "syncPartners: Current user ID: ${user.id}")
 
@@ -108,9 +111,9 @@ class PartnersRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun removePartner(partner: Partner): DataResult<Unit> {
+    override suspend fun removePartner(partner: Partner): DataResult<Unit> = withContext(dispatcherProvider.io) {
         Log.d(TAG, "removePartner: Removing partner with ID ${partner.id}")
-        return try {
+        try {
             val payload = mapOf(
                 "partnerId" to partner.id,
                 "dominantId" to partner.dominantId,

@@ -2,6 +2,7 @@ package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
 import com.mabbology.aurajournal.core.util.DataResult
+import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.data.local.JournalAssignmentDao
 import com.mabbology.aurajournal.data.local.toEntity
 import com.mabbology.aurajournal.data.local.toJournalAssignment
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.UUID
 import javax.inject.Inject
@@ -28,7 +30,8 @@ private const val TAG = "JournalAssignmentsRepo"
 class JournalAssignmentsRepositoryImpl @Inject constructor(
     private val databases: Databases,
     private val account: Account,
-    private val assignmentDao: JournalAssignmentDao
+    private val assignmentDao: JournalAssignmentDao,
+    private val dispatcherProvider: DispatcherProvider
 ) : JournalAssignmentsRepository {
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -40,8 +43,8 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun syncAssignments(): DataResult<Unit> {
-        return try {
+    override suspend fun syncAssignments(): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        try {
             val user = account.get()
             val response = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
@@ -70,7 +73,7 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun createAssignment(submissiveId: String, prompt: String): DataResult<Unit> {
+    override suspend fun createAssignment(submissiveId: String, prompt: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
         val user = account.get()
         val tempId = "local_${UUID.randomUUID()}"
         val createdAt = Date()
@@ -86,7 +89,7 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
         Log.d(TAG, "Optimistic Create: Inserting temporary local assignment with id $tempId")
         assignmentDao.upsertAssignments(listOf(newAssignment.toEntity()))
 
-        return try {
+        try {
             val newDocument = databases.createDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.JOURNAL_ASSIGNMENTS_COLLECTION_ID,
@@ -115,17 +118,17 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun completeAssignment(assignmentId: String): DataResult<Unit> {
+    override suspend fun completeAssignment(assignmentId: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
         val userId = account.get().id
         // Optimistically remove the assignment from the local database
         val originalAssignmentEntity = assignmentDao.getAssignments(userId)
             .map { list -> list.firstOrNull { it.id == assignmentId } }
-            .first() ?: return DataResult.Error(Exception("Assignment not found locally"))
+            .first() ?: return@withContext DataResult.Error(Exception("Assignment not found locally"))
 
         Log.d(TAG, "Optimistic Complete: Deleting local assignment with id $assignmentId")
         assignmentDao.deleteAssignmentById(assignmentId)
 
-        return try {
+        try {
             // Attempt to update the remote database
             databases.updateDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,

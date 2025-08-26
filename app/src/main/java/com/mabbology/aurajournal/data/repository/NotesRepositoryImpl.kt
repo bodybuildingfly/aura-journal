@@ -3,6 +3,7 @@ package com.mabbology.aurajournal.data.repository
 import android.util.Log
 import com.google.gson.Gson
 import com.mabbology.aurajournal.core.util.DataResult
+import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.data.local.NoteDao
 import com.mabbology.aurajournal.data.local.toEntity
 import com.mabbology.aurajournal.data.local.toNote
@@ -17,6 +18,7 @@ import io.appwrite.services.Databases
 import io.appwrite.services.Functions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.time.OffsetDateTime
 import java.util.UUID
 import javax.inject.Inject
@@ -27,7 +29,8 @@ class NotesRepositoryImpl @Inject constructor(
     private val databases: Databases,
     private val account: Account,
     private val functions: Functions,
-    private val noteDao: NoteDao
+    private val noteDao: NoteDao,
+    private val dispatcherProvider: DispatcherProvider
 ) : NotesRepository {
 
     override fun getNotes(): Flow<List<Note>> {
@@ -40,8 +43,8 @@ class NotesRepositoryImpl @Inject constructor(
         return noteDao.getNoteByIdStream(id).map { it?.toNote() }
     }
 
-    override suspend fun syncNotes(): DataResult<Unit> {
-        return try {
+    override suspend fun syncNotes(): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        try {
             val user = account.get()
             val response = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
@@ -73,7 +76,7 @@ class NotesRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun createNote(title: String, content: String, type: String, partnerId: String?): DataResult<Unit> {
+    override suspend fun createNote(title: String, content: String, type: String, partnerId: String?): DataResult<Unit> = withContext(dispatcherProvider.io) {
         val user = account.get()
         val documentData = mutableMapOf<String, Any>(
             "ownerId" to user.id,
@@ -84,7 +87,7 @@ class NotesRepositoryImpl @Inject constructor(
         partnerId?.let { documentData["partnerId"] = it }
 
         if (type == "shared" && partnerId != null) {
-            return try {
+            return@withContext try {
                 // ... shared entry logic
                 DataResult.Success(Unit)
             } catch (e: Exception) {
@@ -104,7 +107,7 @@ class NotesRepositoryImpl @Inject constructor(
         Log.d(TAG, "Optimistic Create: Inserting temporary local note with id $tempId")
         noteDao.upsertNotes(listOf(newNote.toEntity()))
 
-        return try {
+        try {
             val newDocument = databases.createDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.NOTES_COLLECTION_ID,
@@ -128,14 +131,14 @@ class NotesRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateNote(id: String, title: String, content: String): DataResult<Unit> {
-        val originalNoteEntity = noteDao.getNoteById(id) ?: return DataResult.Error(Exception("Note not found"))
+    override suspend fun updateNote(id: String, title: String, content: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        val originalNoteEntity = noteDao.getNoteById(id) ?: return@withContext DataResult.Error(Exception("Note not found"))
         val updatedNoteEntity = originalNoteEntity.copy(title = title, content = content)
 
         Log.d(TAG, "Optimistic Update: Updating local note with id $id")
         noteDao.upsertNotes(listOf(updatedNoteEntity))
 
-        return try {
+        try {
             val data = mapOf<String, Any>(
                 "title" to title,
                 "content" to content
@@ -155,13 +158,13 @@ class NotesRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteNote(id: String): DataResult<Unit> {
-        val originalNoteEntity = noteDao.getNoteById(id) ?: return DataResult.Error(Exception("Note not found"))
+    override suspend fun deleteNote(id: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        val originalNoteEntity = noteDao.getNoteById(id) ?: return@withContext DataResult.Error(Exception("Note not found"))
 
         Log.d(TAG, "Optimistic Delete: Deleting local note with id $id")
         noteDao.deleteNoteById(id)
 
-        return try {
+        try {
             databases.deleteDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.NOTES_COLLECTION_ID,

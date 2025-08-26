@@ -2,20 +2,23 @@ package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
 import com.mabbology.aurajournal.core.util.DataResult
+import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.domain.repository.AuthRepository
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import io.appwrite.services.Account
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 private const val TAG = "AuthRepository"
 
 class AuthRepositoryImpl @Inject constructor(
     private val account: Account, // Now injects Account directly
-    private val userProfilesRepository: UserProfilesRepository
+    private val userProfilesRepository: UserProfilesRepository,
+    private val dispatcherProvider: DispatcherProvider
 ) : AuthRepository {
 
-    override suspend fun checkSessionStatus(): DataResult<Unit> {
-        return try {
+    override suspend fun checkSessionStatus(): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        try {
             account.get()
             DataResult.Success(Unit)
         } catch (e: Exception) {
@@ -23,8 +26,8 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun register(email: String, password: String, name: String): DataResult<Unit> {
-        return try {
+    override suspend fun register(email: String, password: String, name: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        try {
             val user = account.create(
                 userId = "unique()",
                 email = email,
@@ -43,7 +46,7 @@ class AuthRepositoryImpl @Inject constructor(
             when (profileResult) {
                 is DataResult.Error -> {
                     Log.e(TAG, "Profile creation failed after registration.")
-                    return DataResult.Error(profileResult.exception)
+                    return@withContext DataResult.Error(profileResult.exception)
                 }
                 is DataResult.Success -> {
                     // All good
@@ -57,8 +60,8 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun login(email: String, password: String): DataResult<Unit> {
-        return try {
+    override suspend fun login(email: String, password: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        try {
             account.createEmailPasswordSession(
                 email = email,
                 password = password
@@ -69,8 +72,8 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun logout(): DataResult<Unit> {
-        return try {
+    override suspend fun logout(): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        try {
             account.deleteSession("current")
             DataResult.Success(Unit)
         } catch (e: Exception) {
@@ -78,8 +81,8 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updatePassword(password: String, oldPassword: String): DataResult<Unit> {
-        return try {
+    override suspend fun updatePassword(password: String, oldPassword: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        try {
             account.updatePassword(password = password, oldPassword = oldPassword)
             DataResult.Success(Unit)
         } catch (e: Exception) {

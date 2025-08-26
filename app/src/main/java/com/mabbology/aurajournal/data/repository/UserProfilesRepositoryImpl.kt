@@ -2,22 +2,25 @@ package com.mabbology.aurajournal.data.repository
 
 import android.util.Log
 import com.mabbology.aurajournal.core.util.DataResult
+import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.di.AppwriteConstants
 import com.mabbology.aurajournal.domain.model.UserProfile
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 private const val TAG = "UserProfilesRepository"
 
 class UserProfilesRepositoryImpl @Inject constructor(
     private val databases: Databases, // Now injects Databases directly
-    private val account: Account      // And Account directly
+    private val account: Account,      // And Account directly
+    private val dispatcherProvider: DispatcherProvider
 ) : UserProfilesRepository {
 
-    override suspend fun getUserProfiles(): DataResult<List<UserProfile>> {
-        return try {
+    override suspend fun getUserProfiles(): DataResult<List<UserProfile>> = withContext(dispatcherProvider.io) {
+        try {
             val currentUser = account.get()
             val response = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
@@ -39,8 +42,8 @@ class UserProfilesRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun searchUserProfiles(query: String): DataResult<List<UserProfile>> {
-        return try {
+    override suspend fun searchUserProfiles(query: String): DataResult<List<UserProfile>> = withContext(dispatcherProvider.io) {
+        try {
             when (val profilesResult = getUserProfiles()) {
                 is DataResult.Success -> {
                     val profiles = profilesResult.data
@@ -62,9 +65,9 @@ class UserProfilesRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun createUserProfile(userId: String, displayName: String): DataResult<Unit> {
+    override suspend fun createUserProfile(userId: String, displayName: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
         Log.d(TAG, "Attempting to create profile for userId: $userId")
-        return try {
+        try {
             databases.createDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.USER_PROFILES_COLLECTION_ID,
@@ -82,8 +85,8 @@ class UserProfilesRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getCurrentUserProfile(): DataResult<UserProfile?> {
-        return try {
+    override suspend fun getCurrentUserProfile(): DataResult<UserProfile?> = withContext(dispatcherProvider.io) {
+        try {
             val user = account.get()
             val document = databases.getDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
@@ -101,8 +104,8 @@ class UserProfilesRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getUserProfile(userId: String): DataResult<UserProfile?> {
-        return try {
+    override suspend fun getUserProfile(userId: String): DataResult<UserProfile?> = withContext(dispatcherProvider.io) {
+        try {
             val document = databases.getDocument(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.USER_PROFILES_COLLECTION_ID,
