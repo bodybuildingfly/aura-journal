@@ -9,15 +9,18 @@ import com.mabbology.aurajournal.di.AppwriteConstants
 import com.mabbology.aurajournal.domain.model.Partner
 import com.mabbology.aurajournal.domain.repository.PartnersRepository
 import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
+import com.google.gson.Gson
 import io.appwrite.Query
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
+import io.appwrite.services.Functions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class PartnersRepositoryImpl @Inject constructor(
     private val databases: Databases,
+    private val functions: Functions,
     private val account: Account,
     private val userProfilesRepository: UserProfilesRepository,
     private val partnerDao: PartnerDao
@@ -101,6 +104,32 @@ class PartnersRepositoryImpl @Inject constructor(
             DataResult.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "syncPartners: An error occurred during partner sync", e)
+            DataResult.Error(e)
+        }
+    }
+
+    override suspend fun removePartner(partner: Partner): DataResult<Unit> {
+        Log.d(TAG, "removePartner: Removing partner with ID ${partner.id}")
+        return try {
+            val payload = mapOf(
+                "partnerId" to partner.id,
+                "dominantId" to partner.dominantId,
+                "submissiveId" to partner.submissiveId
+            )
+            val jsonPayload = Gson().toJson(payload)
+
+            functions.createExecution(
+                functionId = AppwriteConstants.REMOVE_PARTNER_FUNCTION_ID,
+                body = jsonPayload
+            )
+            Log.d(TAG, "removePartner: Successfully triggered removePartner function on Appwrite.")
+
+            // After successful execution, sync partners to reflect the changes locally
+            syncPartners()
+
+            DataResult.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "removePartner: An error occurred while removing partner", e)
             DataResult.Error(e)
         }
     }

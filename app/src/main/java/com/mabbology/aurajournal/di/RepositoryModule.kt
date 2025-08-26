@@ -62,11 +62,12 @@ object RepositoryModule {
     @Singleton
     fun providePartnersRepository(
         databases: Databases,
+        functions: Functions,
         account: Account,
         userProfilesRepository: UserProfilesRepository,
         partnerDao: com.mabbology.aurajournal.data.local.PartnerDao
     ): PartnersRepository {
-        return PartnersRepositoryImpl(databases, account, userProfilesRepository, partnerDao)
+        return PartnersRepositoryImpl(databases, functions, account, userProfilesRepository, partnerDao)
     }
 
     @Provides

@@ -12,6 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +41,7 @@ fun PartnersScreen(
     val requestsState by requestsViewModel.state.collectAsState()
     val partnersState by partnersViewModel.state.collectAsState()
     val profileState by profileViewModel.profileState.collectAsState()
+    var partnerToRemove by remember { mutableStateOf<Partner?>(null) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -91,15 +95,18 @@ fun PartnersScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
             if (partnersState.partners.isEmpty()) {
-                item { Text("You have no partners yet.", modifier = Modifier.padding(bottom = 16.dp)) }
+                item {
+                    Text(
+                        "You have no partners yet.",
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
             } else {
                 items(partnersState.partners) { partner ->
                     PartnerCard(
                         partner = partner,
                         currentUserId = profileState.userId,
-                        onAssignJournal = { submissiveId ->
-                            navController.navigate("createAssignment/$submissiveId")
-                        }
+                        onRemovePartner = { partnerToRemove = it }
                     )
                 }
             }
@@ -110,7 +117,12 @@ fun PartnersScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
             if (requestsState.incomingRequests.isEmpty()) {
-                item { Text("No incoming applications.", modifier = Modifier.padding(bottom = 16.dp)) }
+                item {
+                    Text(
+                        "No incoming applications.",
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
             } else {
                 items(requestsState.incomingRequests) { request ->
                     IncomingRequestCard(
@@ -136,13 +148,38 @@ fun PartnersScreen(
             }
         }
     }
+
+    if (partnerToRemove != null) {
+        AlertDialog(
+            onDismissRequest = { partnerToRemove = null },
+            title = { Text("Remove Partner") },
+            text = { Text("Are you sure you want to remove this partner? Any shared journal entries or notes will be copied to each partner's personal section. Assignments related to the partnership will be removed from both partners.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        partnerToRemove?.let {
+                            partnersViewModel.removePartner(it)
+                        }
+                        partnerToRemove = null
+                    }
+                ) {
+                    Text("Remove")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { partnerToRemove = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 fun PartnerCard(
     partner: Partner,
     currentUserId: String,
-    onAssignJournal: (String) -> Unit
+    onRemovePartner: (Partner) -> Unit
 ) {
     val isCurrentUserDominant = partner.dominantId == currentUserId
     val partnerName = if (isCurrentUserDominant) partner.submissiveName else partner.dominantName
@@ -161,10 +198,8 @@ fun PartnerCard(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
-            if (isCurrentUserDominant) {
-                Button(onClick = { onAssignJournal(partner.submissiveId) }) {
-                    Text("Assign Journal")
-                }
+            Button(onClick = { onRemovePartner(partner) }) {
+                Text("Remove")
             }
         }
     }

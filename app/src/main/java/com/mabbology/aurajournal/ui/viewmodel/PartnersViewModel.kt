@@ -59,4 +59,19 @@ class PartnersViewModel @Inject constructor(
             _state.value = _state.value.copy(isLoading = false)
         }
     }
+
+    fun removePartner(partner: Partner) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true)
+            when (repository.removePartner(partner)) {
+                is DataResult.Error -> {
+                    _state.value = _state.value.copy(error = "Failed to remove partner.")
+                }
+                is DataResult.Success -> {
+                    // No-op, UI will update via flow from sync
+                }
+            }
+            _state.value = _state.value.copy(isLoading = false)
+        }
+    }
 }
