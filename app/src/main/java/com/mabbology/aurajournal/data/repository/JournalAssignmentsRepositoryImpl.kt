@@ -14,13 +14,16 @@ import io.appwrite.Query
 import io.appwrite.Role
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.OffsetDateTime
 import java.util.Date
 import java.util.UUID
 import javax.inject.Inject
@@ -54,7 +57,8 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
                 )
             )
             val assignments = response.documents.map { document ->
-                val createdAt = Date((document.createdAt as Long) * 1000)
+                val odt = OffsetDateTime.parse(document.createdAt)
+                val createdAt = Date.from(odt.toInstant())
                 JournalAssignment(
                     id = document.id,
                     dominantId = document.data["dominantId"] as String,
@@ -73,7 +77,7 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun createAssignment(submissiveId: String, prompt: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
+    override suspend fun createAssignment(submissiveId: String, prompt: String): DataResult<JournalAssignment> {
         val user = account.get()
         val tempId = "local_${UUID.randomUUID()}"
         val createdAt = Date()
@@ -86,36 +90,38 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
             journalId = null,
             createdAt = createdAt
         )
-        Log.d(TAG, "Optimistic Create: Inserting temporary local assignment with id $tempId")
+
         assignmentDao.upsertAssignments(listOf(newAssignment.toEntity()))
 
-        try {
-            val newDocument = databases.createDocument(
-                databaseId = AppwriteConstants.DATABASE_ID,
-                collectionId = AppwriteConstants.JOURNAL_ASSIGNMENTS_COLLECTION_ID,
-                documentId = "unique()",
-                data = mapOf(
-                    "dominantId" to user.id,
-                    "submissiveId" to submissiveId,
-                    "prompt" to prompt,
-                    "status" to "pending"
-                ),
-                permissions = listOf(
-                    Permission.read(Role.user(user.id)),
-                    Permission.read(Role.user(submissiveId)),
-                    Permission.update(Role.user(submissiveId))
+        CoroutineScope(dispatcherProvider.io).launch {
+            try {
+                val newDocument = databases.createDocument(
+                    databaseId = AppwriteConstants.DATABASE_ID,
+                    collectionId = AppwriteConstants.JOURNAL_ASSIGNMENTS_COLLECTION_ID,
+                    documentId = "unique()",
+                    data = mapOf(
+                        "dominantId" to user.id,
+                        "submissiveId" to submissiveId,
+                        "prompt" to prompt,
+                        "status" to "pending"
+                    ),
+                    permissions = listOf(
+                        Permission.read(Role.user(user.id)),
+                        Permission.read(Role.user(submissiveId)),
+                        Permission.update(Role.user(submissiveId))
+                    )
                 )
-            )
-            val finalAssignment = newAssignment.copy(id = newDocument.id, createdAt = Date((newDocument.createdAt as Long) * 1000))
-            Log.d(TAG, "Remote create successful. Replacing temp assignment $tempId with final id ${newDocument.id}")
-            assignmentDao.deleteAssignmentById(tempId)
-            assignmentDao.upsertAssignments(listOf(finalAssignment.toEntity()))
-            DataResult.Success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
-            assignmentDao.deleteAssignmentById(tempId)
-            DataResult.Error(e)
+                val odt = OffsetDateTime.parse(newDocument.createdAt)
+                val finalCreatedAt = Date.from(odt.toInstant())
+                val finalAssignment = newAssignment.copy(id = newDocument.id, createdAt = finalCreatedAt)
+                assignmentDao.deleteAssignmentById(tempId)
+                assignmentDao.upsertAssignments(listOf(finalAssignment.toEntity()))
+            } catch (e: Exception) {
+                Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
+                assignmentDao.deleteAssignmentById(tempId)
+            }
         }
+        return DataResult.Success(newAssignment)
     }
 
     override suspend fun completeAssignment(assignmentId: String): DataResult<Unit> = withContext(dispatcherProvider.io) {

@@ -73,7 +73,6 @@ class PartnerRequestsViewModel @Inject constructor(
             when (repository.approveRequest(request)) {
                 is DataResult.Success -> {
                     _state.update { it.copy(requestApproved = true) }
-                    syncRequests()
                     partnersRepository.syncPartners()
                 }
                 is DataResult.Error -> _state.update { it.copy(error = "Failed to approve request.", approvingRequestId = null) }

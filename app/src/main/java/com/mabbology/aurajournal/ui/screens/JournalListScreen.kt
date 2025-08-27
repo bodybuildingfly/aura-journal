@@ -20,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.Journal
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
+import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
@@ -31,6 +32,7 @@ fun JournalListScreen(
 ) {
     val listState by viewModel.listState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(listState.error) {
         listState.error?.let {
@@ -67,7 +69,13 @@ fun JournalListScreen(
                         JournalCard(
                             journal = journal,
                             onClick = {
-                                navController.navigate("journalView/${journal.id}")
+                                if (journal.id.startsWith("local_")) {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Entry is still syncing...")
+                                    }
+                                } else {
+                                    navController.navigate("journalView/${journal.id}")
+                                }
                             },
                             modifier = Modifier.animateItem()
                         )

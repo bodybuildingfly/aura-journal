@@ -15,8 +15,10 @@ import io.appwrite.Query
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
 import io.appwrite.services.Functions
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
@@ -117,11 +119,11 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun sendPartnerRequest(dominantId: String, submissiveId: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
+    override suspend fun sendPartnerRequest(dominantId: String, submissiveId: String): DataResult<PartnerRequest> {
         val dominantProfileResult = userProfilesRepository.getUserProfile(dominantId)
         val dominantProfile = when (dominantProfileResult) {
-            is DataResult.Success -> dominantProfileResult.data ?: return@withContext DataResult.Error(Exception("Dominant profile not found"))
-            is DataResult.Error -> return@withContext dominantProfileResult
+            is DataResult.Success -> dominantProfileResult.data ?: return DataResult.Error(Exception("Dominant profile not found"))
+            is DataResult.Error -> return DataResult.Error(dominantProfileResult.exception)
         }
 
         val tempId = "local_${UUID.randomUUID()}"
@@ -132,30 +134,33 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
             status = "pending",
             counterpartyName = dominantProfile.displayName
         )
-        Log.d(TAG, "Optimistic Create: Inserting temporary local request with id $tempId")
         partnerRequestDao.upsertRequests(listOf(newRequest.toEntity()))
 
-        try {
-            val payload = Gson().toJson(mapOf("dominantId" to dominantId, "submissiveId" to submissiveId))
-            functions.createExecution(functionId = AppwriteConstants.CONNECTION_REQUESTS_FUNCTION_ID, body = payload)
-            // We don't need the remote ID, so we just sync to get the final version
-            syncRequests()
-            DataResult.Success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
-            partnerRequestDao.deleteRequestById(tempId)
-            DataResult.Error(e)
+        CoroutineScope(dispatcherProvider.io).launch {
+            try {
+                val payload = Gson().toJson(mapOf("dominantId" to dominantId, "submissiveId" to submissiveId))
+                functions.createExecution(functionId = AppwriteConstants.CONNECTION_REQUESTS_FUNCTION_ID, body = payload)
+                syncRequests()
+            } catch (e: Exception) {
+                Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
+                partnerRequestDao.deleteRequestById(tempId)
+            }
         }
+        return DataResult.Success(newRequest)
     }
 
-    override suspend fun approveRequest(request: PartnerRequest): DataResult<Unit> = withContext(dispatcherProvider.io) {
-        try {
-            val payload = Gson().toJson(mapOf("requestId" to request.id, "dominantId" to request.dominantId, "submissiveId" to request.submissiveId))
-            functions.createExecution(functionId = AppwriteConstants.APPROVE_CONNECTION_REQUEST_FUNCTION_ID, body = payload)
-            DataResult.Success(Unit)
-        } catch (e: Exception) {
-            DataResult.Error(e)
+    override suspend fun approveRequest(request: PartnerRequest): DataResult<Unit> {
+        partnerRequestDao.deleteRequestById(request.id)
+
+        CoroutineScope(dispatcherProvider.io).launch {
+            try {
+                val payload = Gson().toJson(mapOf("requestId" to request.id, "dominantId" to request.dominantId, "submissiveId" to request.submissiveId))
+                functions.createExecution(functionId = AppwriteConstants.APPROVE_CONNECTION_REQUEST_FUNCTION_ID, body = payload)
+            } catch (e: Exception) {
+                partnerRequestDao.upsertRequests(listOf(request.toEntity()))
+            }
         }
+        return DataResult.Success(Unit)
     }
 
     override suspend fun rejectRequest(requestId: String): DataResult<Unit> = withContext(dispatcherProvider.io) {

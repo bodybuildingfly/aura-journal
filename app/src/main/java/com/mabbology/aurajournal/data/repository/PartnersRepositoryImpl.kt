@@ -15,8 +15,10 @@ import io.appwrite.Query
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
 import io.appwrite.services.Functions
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -111,29 +113,27 @@ class PartnersRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun removePartner(partner: Partner): DataResult<Unit> = withContext(dispatcherProvider.io) {
-        Log.d(TAG, "removePartner: Removing partner with ID ${partner.id}")
-        try {
-            val payload = mapOf(
-                "partnerId" to partner.id,
-                "dominantId" to partner.dominantId,
-                "submissiveId" to partner.submissiveId
-            )
-            val jsonPayload = Gson().toJson(payload)
+    override suspend fun removePartner(partner: Partner): DataResult<Unit> {
+        partnerDao.clearPartners() // Simplified optimistic update
 
-            functions.createExecution(
-                functionId = AppwriteConstants.REMOVE_PARTNER_FUNCTION_ID,
-                body = jsonPayload
-            )
-            Log.d(TAG, "removePartner: Successfully triggered removePartner function on Appwrite.")
+        CoroutineScope(dispatcherProvider.io).launch {
+            try {
+                val payload = mapOf(
+                    "partnerId" to partner.id,
+                    "dominantId" to partner.dominantId,
+                    "submissiveId" to partner.submissiveId
+                )
+                val jsonPayload = Gson().toJson(payload)
 
-            // After successful execution, sync partners to reflect the changes locally
-            syncPartners()
-
-            DataResult.Success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "removePartner: An error occurred while removing partner", e)
-            DataResult.Error(e)
+                functions.createExecution(
+                    functionId = AppwriteConstants.REMOVE_PARTNER_FUNCTION_ID,
+                    body = jsonPayload
+                )
+                syncPartners()
+            } catch (e: Exception) {
+                syncPartners() // Sync to restore state on failure
+            }
         }
+        return DataResult.Success(Unit)
     }
 }

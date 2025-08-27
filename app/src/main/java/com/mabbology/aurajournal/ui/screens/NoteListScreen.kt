@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.Note
 import com.mabbology.aurajournal.ui.viewmodel.NoteViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -26,8 +27,11 @@ fun NoteListScreen(
     viewModel: NoteViewModel
 ) {
     val listState by viewModel.listState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = { navController.navigate("noteEditor") }) {
                 Icon(Icons.Default.Add, contentDescription = "Add Note")
@@ -53,7 +57,15 @@ fun NoteListScreen(
                     ) { note ->
                         NoteCard(
                             note = note,
-                            onClick = { navController.navigate("noteView/${note.id}") },
+                            onClick = {
+                                if (note.id.startsWith("local_")) {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Note is still syncing...")
+                                    }
+                                } else {
+                                    navController.navigate("noteView/${note.id}")
+                                }
+                            },
                             modifier = Modifier.animateItem()
                         )
                     }
