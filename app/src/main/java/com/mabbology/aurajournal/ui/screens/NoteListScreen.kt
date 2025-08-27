@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.Note
 import com.mabbology.aurajournal.ui.viewmodel.NoteViewModel
-import com.mabbology.aurajournal.ui.viewmodel.ProfileState
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -26,7 +25,7 @@ fun NoteListScreen(
     navController: NavController,
     viewModel: NoteViewModel
 ) {
-    val noteListState by viewModel.noteListState.collectAsState()
+    val listState by viewModel.listState.collectAsState()
 
     Scaffold(
         floatingActionButton = {
@@ -40,7 +39,7 @@ fun NoteListScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (noteListState.notes.isEmpty() && !noteListState.isLoading) {
+            if (listState.items.isEmpty() && !listState.isLoading) {
                 EmptyNoteView()
             } else {
                 LazyColumn(
@@ -49,7 +48,7 @@ fun NoteListScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
-                        items = noteListState.notes,
+                        items = listState.items,
                         key = { note -> note.id }
                     ) { note ->
                         NoteCard(
@@ -60,7 +59,7 @@ fun NoteListScreen(
                     }
                 }
             }
-            if (noteListState.isLoading) {
+            if (listState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         }

@@ -20,8 +20,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.Journal
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
-import com.mabbology.aurajournal.ui.viewmodel.PartnersViewModel
-import com.mabbology.aurajournal.ui.viewmodel.ProfileState
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
@@ -29,20 +27,15 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun JournalListScreen(
     navController: NavController,
-    profileState: ProfileState,
-    partnersViewModel: PartnersViewModel,
     viewModel: JournalViewModel = hiltViewModel()
 ) {
-    val journalListState by viewModel.journalListState.collectAsState()
-    val partnersState by partnersViewModel.state.collectAsState()
+    val listState by viewModel.listState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val submissivePartners = partnersState.partners.filter { it.dominantId == profileState.userId }
-
-    LaunchedEffect(journalListState.error) {
-        journalListState.error?.let {
+    LaunchedEffect(listState.error) {
+        listState.error?.let {
             snackbarHostState.showSnackbar(message = it)
-            viewModel.clearJournalListError()
+            viewModel.clearListError()
         }
     }
 
@@ -59,7 +52,7 @@ fun JournalListScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (journalListState.journals.isEmpty() && !journalListState.isLoading) {
+            if (listState.items.isEmpty() && !listState.isLoading) {
                 EmptyJournalView()
             } else {
                 LazyColumn(
@@ -68,7 +61,7 @@ fun JournalListScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
-                        items = journalListState.journals,
+                        items = listState.items,
                         key = { journal -> journal.id }
                     ) { journal ->
                         JournalCard(
@@ -81,7 +74,7 @@ fun JournalListScreen(
                     }
                 }
             }
-            if (journalListState.isLoading) {
+            if (listState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         }

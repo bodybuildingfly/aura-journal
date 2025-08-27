@@ -21,17 +21,17 @@ fun NoteViewScreen(
     viewModel: NoteViewModel,
     noteId: String?
 ) {
-    val selectedNoteState by viewModel.selectedNoteState.collectAsState()
+    val selectedState by viewModel.selectedState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(noteId) {
         if (noteId != null) {
-            viewModel.observeNoteById(noteId)
+            viewModel.observeItemById(noteId)
         }
     }
 
-    LaunchedEffect(selectedNoteState.isDeleted) {
-        if (selectedNoteState.isDeleted) {
+    LaunchedEffect(selectedState.isDeleted) {
+        if (selectedState.isDeleted) {
             navController.popBackStack()
             viewModel.onDeletionHandled()
         }
@@ -45,7 +45,7 @@ fun NoteViewScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        noteId?.let { viewModel.deleteNote(it) }
+                        noteId?.let { viewModel.deleteItemById(it) }
                         showDeleteDialog = false
                     }
                 ) { Text("Delete") }
@@ -59,7 +59,7 @@ fun NoteViewScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(selectedNoteState.note?.title ?: "Note") },
+                title = { Text(selectedState.item?.title ?: "Note") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -83,7 +83,7 @@ fun NoteViewScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            selectedNoteState.note?.let { note ->
+            selectedState.item?.let { note ->
                 Text(
                     text = note.content,
                     style = MaterialTheme.typography.bodyLarge

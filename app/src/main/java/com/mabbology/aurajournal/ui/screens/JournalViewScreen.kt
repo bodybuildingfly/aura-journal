@@ -24,19 +24,17 @@ fun JournalViewScreen(
     journalId: String?,
     viewModel: JournalViewModel = hiltViewModel()
 ) {
-    val selectedJournalState by viewModel.selectedJournalState.collectAsState()
+    val selectedState by viewModel.selectedState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // This effect now starts observing the journal from the local database.
-    // The UI will load instantly and then update if any changes occur.
     LaunchedEffect(journalId) {
         if (journalId != null) {
-            viewModel.observeJournalById(journalId)
+            viewModel.observeItemById(journalId)
         }
     }
 
-    LaunchedEffect(selectedJournalState.isDeleted) {
-        if (selectedJournalState.isDeleted) {
+    LaunchedEffect(selectedState.isDeleted) {
+        if (selectedState.isDeleted) {
             navController.popBackStack()
             viewModel.onDeletionHandled()
         }
@@ -50,7 +48,7 @@ fun JournalViewScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        journalId?.let { viewModel.deleteJournalEntry(it) }
+                        journalId?.let { viewModel.deleteItemById(it) }
                         showDeleteDialog = false
                     }
                 ) {
@@ -68,7 +66,7 @@ fun JournalViewScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(selectedJournalState.journal?.title ?: "Journal Entry") },
+                title = { Text(selectedState.item?.title ?: "Journal Entry") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -99,7 +97,7 @@ fun JournalViewScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            selectedJournalState.journal?.let { journal ->
+            selectedState.item?.let { journal ->
                 Text(
                     text = formatTimestamp(journal.createdAt),
                     style = MaterialTheme.typography.bodySmall,

@@ -23,8 +23,8 @@ fun NoteEditorScreen(
     profileViewModel: ProfileViewModel = hiltViewModel(),
     noteId: String? = null
 ) {
-    val editorState by viewModel.noteEditorState.collectAsState()
-    val selectedNoteState by viewModel.selectedNoteState.collectAsState()
+    val editorState by viewModel.editorState.collectAsState()
+    val selectedState by viewModel.selectedState.collectAsState()
     val partnersState by partnersViewModel.state.collectAsState()
     val profileState by profileViewModel.profileState.collectAsState()
 
@@ -38,12 +38,12 @@ fun NoteEditorScreen(
 
     LaunchedEffect(noteId) {
         if (noteId != null) {
-            viewModel.observeNoteById(noteId)
+            viewModel.observeItemById(noteId)
         }
     }
 
-    LaunchedEffect(selectedNoteState.note) {
-        selectedNoteState.note?.let {
+    LaunchedEffect(selectedState.item) {
+        selectedState.item?.let {
             title = it.title
             content = it.content
             isShared = it.type == "shared"
@@ -98,14 +98,11 @@ fun NoteEditorScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (partnerId != null && noteId == null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                ShareWithPartnerRow(
+                    isShared = isShared,
+                    onCheckedChange = { isShared = it },
                     modifier = Modifier.align(Alignment.Start)
-                ) {
-                    Switch(checked = isShared, onCheckedChange = { isShared = it })
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Share with partner")
-                }
+                )
             }
 
             Button(

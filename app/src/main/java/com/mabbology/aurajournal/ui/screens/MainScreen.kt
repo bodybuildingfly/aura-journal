@@ -11,8 +11,6 @@ import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -31,9 +29,6 @@ fun MainScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     val noteViewModel: NoteViewModel = hiltViewModel()
-    val profileViewModel: ProfileViewModel = hiltViewModel()
-    val partnersViewModel: PartnersViewModel = hiltViewModel()
-    val profileState by profileViewModel.profileState.collectAsState()
 
     val screens = listOf("Journal", "Assignments", "Notes")
     val icons = listOf(Icons.Default.Book, Icons.AutoMirrored.Filled.Assignment, Icons.Default.EditNote)
@@ -92,11 +87,7 @@ fun MainScreen(
                 modifier = Modifier.padding(paddingValues)
             ) { page ->
                 when (page) {
-                    0 -> JournalListScreen(
-                        navController = navController,
-                        profileState = profileState,
-                        partnersViewModel = partnersViewModel
-                    )
+                    0 -> JournalListScreen(navController = navController)
                     1 -> AssignmentListScreen(navController = navController)
                     2 -> NoteListScreen(
                         navController = navController,

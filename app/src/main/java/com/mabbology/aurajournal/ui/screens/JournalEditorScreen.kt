@@ -31,8 +31,8 @@ fun JournalEditorScreen(
     prompt: String? = null,
     viewModel: JournalViewModel = hiltViewModel()
 ) {
-    val editorState by viewModel.journalEditorState.collectAsState()
-    val selectedJournalState by viewModel.selectedJournalState.collectAsState()
+    val editorState by viewModel.editorState.collectAsState()
+    val selectedState by viewModel.selectedState.collectAsState()
     val partnersState by partnersViewModel.state.collectAsState()
     val profileState by profileViewModel.profileState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -48,12 +48,12 @@ fun JournalEditorScreen(
 
     LaunchedEffect(journalId) {
         if (journalId != null) {
-            viewModel.observeJournalById(journalId)
+            viewModel.observeItemById(journalId)
         }
     }
 
-    LaunchedEffect(selectedJournalState.journal) {
-        selectedJournalState.journal?.let {
+    LaunchedEffect(selectedState.item) {
+        selectedState.item?.let {
             title = it.title
             content = it.content
             isShared = it.type == "shared"
@@ -127,14 +127,11 @@ fun JournalEditorScreen(
 
 
             if (partnerId != null && journalId == null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                ShareWithPartnerRow(
+                    isShared = isShared,
+                    onCheckedChange = { isShared = it },
                     modifier = Modifier.align(Alignment.Start)
-                ) {
-                    Switch(checked = isShared, onCheckedChange = { isShared = it })
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Share with partner")
-                }
+                )
             }
 
             Button(
