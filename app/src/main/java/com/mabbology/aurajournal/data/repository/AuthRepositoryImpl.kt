@@ -56,6 +56,12 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun login(email: String, password: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
         try {
+            try {
+                account.deleteSession("current")
+            } catch (e: Exception) {
+                // Ignore exceptions, as this will fail if no session exists, which is fine.
+            }
+
             account.createEmailPasswordSession(
                 email = email,
                 password = password

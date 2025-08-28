@@ -6,6 +6,7 @@ import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import java.util.Date
 
+@Suppress("unused") // Suppress warnings as Room uses these converters at compile time
 class Converters {
     @TypeConverter
     fun fromTimestamp(value: Long?): Date? {
@@ -27,7 +28,7 @@ class Converters {
         JournalAssignmentEntity::class,
         MessageEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

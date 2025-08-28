@@ -10,5 +10,6 @@ data class Message(
     val timestamp: Date,
     val mediaUrl: String? = null,
     val mediaType: String? = null,
-    val status: String
+    val status: String,
+    val deletedFor: List<String> = emptyList()
 )

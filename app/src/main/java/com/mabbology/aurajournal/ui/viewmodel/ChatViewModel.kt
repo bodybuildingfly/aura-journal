@@ -1,3 +1,4 @@
+// File: app/src/main/java/com/mabbology/aurajournal/ui/viewmodel/ChatViewModel.kt
 package com.mabbology.aurajournal.ui.viewmodel
 
 import android.util.Log
@@ -84,7 +85,10 @@ class ChatViewModel @Inject constructor(
     private fun observeMessages() {
         viewModelScope.launch {
             messagesRepository.getMessages(partnershipId)
-                .catch { _ -> _state.update { it.copy(error = "Failed to load messages.") } }
+                .catch { e ->
+                    Log.e(TAG, "Error observing messages", e)
+                    _state.update { it.copy(error = "Failed to load messages.") }
+                }
                 .collect { messages ->
                     _state.update { it.copy(messages = messages) }
                 }
@@ -108,6 +112,19 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(content: String, mediaFile: File? = null, mediaType: String? = null) {
         viewModelScope.launch {
             messagesRepository.sendMessage(partnershipId, partnerId, content, mediaFile, mediaType)
+        }
+    }
+
+    fun deleteMessage(message: Message) {
+        viewModelScope.launch {
+            when (val result = messagesRepository.deleteMessage(message)) {
+                is DataResult.Error -> {
+                    _state.update { it.copy(error = "Failed to delete message: ${result.exception.message}") }
+                }
+                is DataResult.Success -> {
+                    // Optimistic update will handle the UI change
+                }
+            }
         }
     }
 }

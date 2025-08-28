@@ -22,7 +22,10 @@ import io.appwrite.services.Functions
 import io.appwrite.services.Realtime
 import io.appwrite.services.Storage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,9 +49,13 @@ class MessagesRepositoryImpl @Inject constructor(
 
     private var subscription: RealtimeSubscription? = null
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun getMessages(partnershipId: String): Flow<List<Message>> {
-        return messageDao.getMessagesForPartnership(partnershipId).map { entities ->
-            entities.map { it.toMessage() }
+        return flow { emit(account.get().id) }.flatMapLatest { userId ->
+            messageDao.getMessagesForPartnership(partnershipId).map { entities ->
+                entities.map { it.toMessage() }
+                    .filter { !it.deletedFor.contains(userId) }
+            }
         }
     }
 
@@ -62,6 +69,9 @@ class MessagesRepositoryImpl @Inject constructor(
             val messages = response.documents.map {
                 val odt = OffsetDateTime.parse(it.data["timestamp"] as String)
                 val timestamp = Date.from(odt.toInstant())
+                val deletedFor = (it.data["deletedFor"] as? List<*>)
+                    ?.mapNotNull { item -> item as? String } ?: emptyList()
+
                 Message(
                     id = it.id,
                     partnershipId = it.data["partnershipId"] as String,
@@ -70,7 +80,8 @@ class MessagesRepositoryImpl @Inject constructor(
                     timestamp = timestamp,
                     mediaUrl = it.data["mediaUrl"] as? String,
                     mediaType = it.data["mediaType"] as? String,
-                    status = "sent"
+                    status = "sent",
+                    deletedFor = deletedFor
                 )
             }
             messageDao.upsertMessages(messages.map { it.toEntity() })
@@ -102,22 +113,16 @@ class MessagesRepositoryImpl @Inject constructor(
 
             if (mediaFile != null) {
                 try {
-                    Log.d(TAG, "Starting file upload directly to Storage...")
                     val fileId = UUID.randomUUID().toString()
                     val inputFile = InputFile.fromFile(mediaFile)
                     val fileResponse = storage.createFile(
                         bucketId = AppwriteConstants.STORAGE_BUCKET_ID,
                         fileId = fileId,
                         file = inputFile,
-                        permissions = listOf(Permission.read(Role.any())),
-                        onProgress = { progress ->
-                            Log.d(TAG, "File upload progress: ${progress.progress}%")
-                        }
+                        permissions = listOf(Permission.read(Role.any()))
                     )
                     mediaUrl = fileResponse.id
-                    Log.d(TAG, "File upload successful. File ID: $mediaUrl")
                 } catch (e: Exception) {
-                    Log.e(TAG, "File upload failed.", e)
                     uploadSuccessful = false
                     messageDao.upsertMessages(listOf(tempMessage.copy(status = "failed").toEntity()))
                 }
@@ -125,7 +130,6 @@ class MessagesRepositoryImpl @Inject constructor(
 
             if (uploadSuccessful) {
                 try {
-                    Log.d(TAG, "Creating message document via function...")
                     val documentData = mutableMapOf<String, Any>(
                         "partnershipId" to partnershipId,
                         "senderId" to currentUser.id,
@@ -136,19 +140,16 @@ class MessagesRepositoryImpl @Inject constructor(
                         documentData["mediaUrl"] = it
                         documentData["mediaType"] = mediaType ?: ""
                     }
-
                     val permissions = listOf(
                         "read(\"user:${currentUser.id}\")",
                         "read(\"user:$partnerId\")"
                     )
-
                     val payload = mapOf(
                         "databaseId" to AppwriteConstants.DATABASE_ID,
                         "collectionId" to AppwriteConstants.MESSAGES_COLLECTION_ID,
                         "documentData" to documentData,
                         "permissions" to permissions
                     )
-
                     val execution = functions.createExecution(
                         functionId = AppwriteConstants.CREATE_DOCUMENT_FUNCTION_ID,
                         body = Gson().toJson(payload)
@@ -169,17 +170,14 @@ class MessagesRepositoryImpl @Inject constructor(
                             if (newDocumentId != null) {
                                 val odt = OffsetDateTime.parse(newDocumentTimestamp)
                                 val finalTimestamp = Date.from(odt.toInstant())
-
                                 val finalMessage = tempMessage.copy(
                                     id = newDocumentId,
                                     timestamp = finalTimestamp,
                                     mediaUrl = mediaUrl,
                                     status = "sent"
                                 )
-
                                 messageDao.deleteMessageById(tempId)
                                 messageDao.upsertMessages(listOf(finalMessage.toEntity()))
-                                Log.d(TAG, "Message document created successfully.")
                             } else {
                                 throw Exception("Server function response is missing document details.")
                             }
@@ -191,10 +189,42 @@ class MessagesRepositoryImpl @Inject constructor(
                         throw Exception("Function execution failed with status: ${execution.status}")
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Message document creation failed.", e)
                     messageDao.upsertMessages(listOf(tempMessage.copy(status = "failed").toEntity()))
                 }
             }
+        }
+    }
+
+    override suspend fun deleteMessage(message: Message): DataResult<Unit> = withContext(dispatcherProvider.io) {
+        val user = account.get()
+        val originalEntity = message.toEntity()
+
+        if (message.senderId == user.id) {
+            Log.d(TAG, "Optimistic hard delete for message ${message.id}")
+            messageDao.deleteMessageById(message.id)
+        } else {
+            Log.d(TAG, "Optimistic soft delete for message ${message.id}")
+            val updatedMessage = message.copy(deletedFor = message.deletedFor + user.id)
+            messageDao.upsertMessages(listOf(updatedMessage.toEntity()))
+        }
+
+        try {
+            val payload = Gson().toJson(mapOf("messageId" to message.id))
+            val execution = functions.createExecution(
+                functionId = AppwriteConstants.DELETE_MESSAGE_FUNCTION_ID,
+                body = payload
+            )
+
+            if (execution.status != "completed" || execution.responseBody.contains("\"success\":false")) {
+                throw Exception("Function execution failed with status: ${execution.status} and response: ${execution.responseBody}")
+            }
+
+            Log.d(TAG, "Remote delete/update function executed successfully for message ${message.id}")
+            DataResult.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Remote delete failed for message ${message.id}. Rolling back.", e)
+            messageDao.upsertMessages(listOf(originalEntity))
+            DataResult.Error(e)
         }
     }
 
@@ -203,14 +233,17 @@ class MessagesRepositoryImpl @Inject constructor(
         Log.d(TAG, "Subscribing to real-time channel: $channel")
         subscription = realtime.subscribe(channel) {
             Log.d(TAG, "Real-time event received: ${it.events}")
-            if (it.events.contains("databases.*.collections.*.documents.*.create")) {
-                Log.d(TAG, "New message created event received. Payload: ${it.payload}")
+
+            if (it.events.any { e -> e.contains(".create") || e.contains(".update") }) {
                 CoroutineScope(dispatcherProvider.io).launch {
                     @Suppress("UNCHECKED_CAST")
                     val payload = it.payload as Map<String, Any>
                     val odt = OffsetDateTime.parse(payload["timestamp"] as String)
                     val timestamp = Date.from(odt.toInstant())
-                    val newMessage = Message(
+                    val deletedFor = (payload["deletedFor"] as? List<*>)
+                        ?.mapNotNull { item -> item as? String } ?: emptyList()
+
+                    val updatedMessage = Message(
                         id = payload["\$id"] as String,
                         partnershipId = payload["partnershipId"] as String,
                         senderId = payload["senderId"] as String,
@@ -218,10 +251,19 @@ class MessagesRepositoryImpl @Inject constructor(
                         timestamp = timestamp,
                         mediaUrl = payload["mediaUrl"] as? String,
                         mediaType = payload["mediaType"] as? String,
-                        status = "sent"
+                        status = "sent",
+                        deletedFor = deletedFor
                     )
-                    Log.d(TAG, "Upserting new message from real-time event into local DB: ${newMessage.id}")
-                    messageDao.upsertMessages(listOf(newMessage.toEntity()))
+                    messageDao.upsertMessages(listOf(updatedMessage.toEntity()))
+                }
+            }
+
+            if (it.events.any { e -> e.contains(".delete") }) {
+                CoroutineScope(dispatcherProvider.io).launch {
+                    @Suppress("UNCHECKED_CAST")
+                    val payload = it.payload as Map<String, Any>
+                    val messageId = payload["\$id"] as String
+                    messageDao.deleteMessageById(messageId)
                 }
             }
         }

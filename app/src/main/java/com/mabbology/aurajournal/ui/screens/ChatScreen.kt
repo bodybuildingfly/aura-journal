@@ -4,7 +4,9 @@ import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -51,6 +53,8 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    var messageToDelete by remember { mutableStateOf<Message?>(null) }
+
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -95,6 +99,37 @@ fun ChatScreen(
         }
     }
 
+    if (messageToDelete != null) {
+        val isOwnMessage = messageToDelete!!.senderId == state.currentUserId
+        val title = "Delete Message"
+        val text = if (isOwnMessage) {
+            "Are you sure you want to permanently delete this message for everyone?"
+        } else {
+            "Are you sure you want to delete this message? This will only remove it from your view."
+        }
+
+        AlertDialog(
+            onDismissRequest = { messageToDelete = null },
+            title = { Text(text = title) },
+            text = { Text(text = text) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteMessage(messageToDelete!!)
+                        messageToDelete = null
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { messageToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -121,10 +156,13 @@ fun ChatScreen(
                     .padding(horizontal = 8.dp),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(state.messages) { message ->
+                items(state.messages, key = { it.id }) { message ->
                     MessageBubble(
                         message = message,
-                        isFromCurrentUser = message.senderId == state.currentUserId
+                        isFromCurrentUser = message.senderId == state.currentUserId,
+                        onLongPress = {
+                            messageToDelete = message
+                        }
                     )
                 }
             }
@@ -146,8 +184,9 @@ fun ChatScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MessageBubble(message: Message, isFromCurrentUser: Boolean) {
+fun MessageBubble(message: Message, isFromCurrentUser: Boolean, onLongPress: () -> Unit) {
     val alignment = if (isFromCurrentUser) Alignment.CenterEnd else Alignment.CenterStart
     val backgroundColor = if (isFromCurrentUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
 
@@ -162,6 +201,10 @@ fun MessageBubble(message: Message, isFromCurrentUser: Boolean) {
                 .fillMaxWidth(0.8f)
                 .clip(RoundedCornerShape(12.dp))
                 .background(backgroundColor)
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = onLongPress
+                )
                 .padding(12.dp)
         ) {
             if (message.mediaUrl != null && message.mediaType != null) {
