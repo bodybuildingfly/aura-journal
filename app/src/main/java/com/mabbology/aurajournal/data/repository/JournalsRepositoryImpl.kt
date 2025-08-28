@@ -22,11 +22,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.OffsetDateTime
-import java.util.UUID
 import javax.inject.Inject
-
-private const val TAG = "JournalsRepositoryImpl"
 
 class JournalsRepositoryImpl @Inject constructor(
     private val databases: Databases,
@@ -75,7 +71,6 @@ class JournalsRepositoryImpl @Inject constructor(
             }
             DataResult.Success(journals)
         } catch (e: Exception) {
-            Log.e(TAG, "Sync failed: ${e.message}")
             DataResult.Error(e)
         }
     }
@@ -172,7 +167,6 @@ class JournalsRepositoryImpl @Inject constructor(
                     throw Exception("Function execution failed with status: ${execution.status}")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error in background journal sync: ${e.message}", e)
                 // If anything fails, remove the temporary local entry to avoid orphaned data.
                 deleteLocalJournalById(tempId)
             }

@@ -63,7 +63,6 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation("androidx.compose.material:material-icons-extended:1.6.8")
 
-
     // Appwrite
     implementation("io.appwrite:sdk-for-android:8.1.0")
 

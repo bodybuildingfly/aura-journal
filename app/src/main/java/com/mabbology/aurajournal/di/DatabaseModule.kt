@@ -18,6 +18,18 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `messages` (`id` TEXT NOT NULL, `partnershipId` TEXT NOT NULL, `senderId` TEXT NOT NULL, `content` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `mediaUrl` TEXT, `mediaType` TEXT, PRIMARY KEY(`id`))")
+    }
+}
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE messages ADD COLUMN `status` TEXT NOT NULL DEFAULT 'sent'")
+    }
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -30,7 +42,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "aura_journal_db"
         )
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
     }
 
@@ -62,5 +74,11 @@ object DatabaseModule {
     @Singleton
     fun provideJournalAssignmentDao(appDatabase: AppDatabase): JournalAssignmentDao {
         return appDatabase.journalAssignmentDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideMessageDao(appDatabase: AppDatabase): MessageDao {
+        return appDatabase.messageDao()
     }
 }

@@ -1,6 +1,12 @@
 package com.mabbology.aurajournal.di
 
 object AppwriteConstants {
+
+    // Appwrite
+    const val ENDPOINT = "https://appwrite.mabbology.com/v1"
+    const val PROJECT_ID = "68a74008002bc24b5f1e"
+
+
     // Database
     const val DATABASE_ID = "68a7b135003a5b46e5ff"
 
@@ -11,6 +17,10 @@ object AppwriteConstants {
     const val PARTNERS_COLLECTION_ID = "68aaf2e80006e1a4173c"
     const val NOTES_COLLECTION_ID = "68a9b2a8000e8ab6c0e8"
     const val JOURNAL_ASSIGNMENTS_COLLECTION_ID = "68aa4941000f08374d23"
+    const val MESSAGES_COLLECTION_ID = "68af7db20004862ef59c"
+
+    // Storage
+    const val STORAGE_BUCKET_ID = "68af79d3001beefb44cb"
 
     // Server Functions
     const val CONNECTION_REQUESTS_FUNCTION_ID = "68a91e40002d2320bddf"

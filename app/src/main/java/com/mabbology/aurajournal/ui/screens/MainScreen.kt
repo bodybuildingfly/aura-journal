@@ -6,11 +6,14 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -22,11 +25,16 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainScreen(
     navController: NavController,
-    authViewModel: AuthViewModel
+    authViewModel: AuthViewModel,
+    partnersViewModel: PartnersViewModel = hiltViewModel(),
+    profileViewModel: ProfileViewModel = hiltViewModel()
 ) {
     val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+    val partnersState by partnersViewModel.state.collectAsState()
+    val profileState by profileViewModel.profileState.collectAsState()
 
     val noteViewModel: NoteViewModel = hiltViewModel()
 
@@ -61,6 +69,21 @@ fun MainScreen(
                                 imageVector = Icons.Default.Menu,
                                 contentDescription = "Menu"
                             )
+                        }
+                    },
+                    actions = {
+                        if (partnersState.partners.isNotEmpty()) {
+                            IconButton(onClick = {
+                                if (partnersState.partners.size == 1) {
+                                    val partner = partnersState.partners.first()
+                                    val partnerId = if (partner.dominantId == profileState.userId) partner.submissiveId else partner.dominantId
+                                    navController.navigate("chat/${partner.id}/$partnerId")
+                                } else {
+                                    navController.navigate("partners")
+                                }
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat")
+                            }
                         }
                     }
                 )

@@ -1,5 +1,6 @@
 package com.mabbology.aurajournal.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -106,7 +107,11 @@ fun PartnersScreen(
                     PartnerCard(
                         partner = partner,
                         currentUserId = profileState.userId,
-                        onRemovePartner = { partnerToRemove = it }
+                        onRemovePartner = { partnerToRemove = it },
+                        onChat = {
+                            val partnerId = if (partner.dominantId == profileState.userId) partner.submissiveId else partner.dominantId
+                            navController.navigate("chat/${partner.id}/$partnerId")
+                        }
                     )
                 }
             }
@@ -179,13 +184,18 @@ fun PartnersScreen(
 fun PartnerCard(
     partner: Partner,
     currentUserId: String,
-    onRemovePartner: (Partner) -> Unit
+    onRemovePartner: (Partner) -> Unit,
+    onChat: () -> Unit
 ) {
     val isCurrentUserDominant = partner.dominantId == currentUserId
     val partnerName = if (isCurrentUserDominant) partner.submissiveName else partner.dominantName
     val partnerRole = if (isCurrentUserDominant) "submissive" else "Dominant"
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onChat)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

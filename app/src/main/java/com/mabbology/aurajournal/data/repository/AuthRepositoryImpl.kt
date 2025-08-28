@@ -1,6 +1,5 @@
 package com.mabbology.aurajournal.data.repository
 
-import android.util.Log
 import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.core.util.DispatcherProvider
 import com.mabbology.aurajournal.domain.repository.AuthRepository
@@ -8,8 +7,6 @@ import com.mabbology.aurajournal.domain.repository.UserProfilesRepository
 import io.appwrite.services.Account
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
-
-private const val TAG = "AuthRepository"
 
 class AuthRepositoryImpl @Inject constructor(
     private val account: Account, // Now injects Account directly
@@ -39,13 +36,11 @@ class AuthRepositoryImpl @Inject constructor(
                 email = email,
                 password = password
             )
-            Log.d(TAG, "User registered and session created. Now creating profile...")
 
             val profileResult = userProfilesRepository.createUserProfile(userId = user.id, displayName = name, email = email)
 
             when (profileResult) {
                 is DataResult.Error -> {
-                    Log.e(TAG, "Profile creation failed after registration.")
                     return@withContext DataResult.Error(profileResult.exception)
                 }
                 is DataResult.Success -> {
@@ -55,7 +50,6 @@ class AuthRepositoryImpl @Inject constructor(
 
             DataResult.Success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Error during registration: ${e.message}", e)
             DataResult.Error(e)
         }
     }

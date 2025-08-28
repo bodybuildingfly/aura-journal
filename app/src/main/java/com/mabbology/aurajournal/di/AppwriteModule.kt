@@ -10,6 +10,8 @@ import io.appwrite.Client
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
 import io.appwrite.services.Functions
+import io.appwrite.services.Realtime
+import io.appwrite.services.Storage
 import javax.inject.Singleton
 
 @Module
@@ -20,11 +22,10 @@ object AppwriteModule {
     @Singleton
     fun provideAppwriteClient(@ApplicationContext context: Context): Client {
         return Client(context)
-            .setEndpoint("https://appwrite.mabbology.com/v1")
-            .setProject("68a74008002bc24b5f1e")
+            .setEndpoint(AppwriteConstants.ENDPOINT)
+            .setProject(AppwriteConstants.PROJECT_ID)
     }
 
-    // New providers for Appwrite services
     @Provides
     @Singleton
     fun provideAppwriteAccount(client: Client): Account {
@@ -41,5 +42,17 @@ object AppwriteModule {
     @Singleton
     fun provideAppwriteFunctions(client: Client): Functions {
         return Functions(client)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAppwriteStorage(client: Client): Storage {
+        return Storage(client)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAppwriteRealtime(client: Client): Realtime {
+        return Realtime(client)
     }
 }

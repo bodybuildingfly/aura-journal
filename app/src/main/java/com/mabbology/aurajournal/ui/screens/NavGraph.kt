@@ -1,6 +1,5 @@
 package com.mabbology.aurajournal.ui.screens
 
-import android.R.attr.type
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -12,7 +11,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.mabbology.aurajournal.ui.viewmodel.AuthViewModel
-import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
 import com.mabbology.aurajournal.ui.viewmodel.NoteViewModel
 
 @Composable
@@ -91,13 +89,12 @@ fun NavGraph(
                 noteId = backStackEntry.arguments?.getString("noteId")
             )
         }
-        composable("noteEditor") {
-            val viewModel: NoteViewModel = hiltViewModel()
-            NoteEditorScreen(navController = navController, viewModel = viewModel, noteId = null)
-        }
         composable(
             "noteEditor/{noteId}",
-            arguments = listOf(navArgument("noteId") { type = NavType.StringType })
+            arguments = listOf(navArgument("noteId") {
+                type = NavType.StringType
+                nullable = true
+            })
         ) { backStackEntry ->
             val viewModel: NoteViewModel = hiltViewModel()
             NoteEditorScreen(
@@ -130,6 +127,17 @@ fun NavGraph(
                 navController = navController,
                 submissiveId = backStackEntry.arguments?.getString("submissiveId")
             )
+        }
+
+        // --- Chat Route ---
+        composable(
+            "chat/{partnershipId}/{partnerId}",
+            arguments = listOf(
+                navArgument("partnershipId") { type = NavType.StringType },
+                navArgument("partnerId") { type = NavType.StringType }
+            )
+        ) {
+            ChatScreen(navController = navController)
         }
     }
 }

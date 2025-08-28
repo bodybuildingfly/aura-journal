@@ -23,8 +23,7 @@ fun LoginScreen(
 
     LaunchedEffect(authState.isAuthenticated) {
         if (authState.isAuthenticated) {
-            // Corrected to navigate to the nested graph's route
-            navController.navigate("journal_flow") {
+            navController.navigate("main") {
                 popUpTo("auth_flow") { inclusive = true }
             }
         }

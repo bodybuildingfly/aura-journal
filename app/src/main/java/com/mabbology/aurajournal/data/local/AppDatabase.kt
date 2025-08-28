@@ -24,9 +24,10 @@ class Converters {
         PartnerRequestEntity::class,
         JournalEntity::class,
         NoteEntity::class,
-        JournalAssignmentEntity::class
+        JournalAssignmentEntity::class,
+        MessageEntity::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -36,4 +37,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun journalDao(): JournalDao
     abstract fun noteDao(): NoteDao
     abstract fun journalAssignmentDao(): JournalAssignmentDao
+    abstract fun messageDao(): MessageDao
 }

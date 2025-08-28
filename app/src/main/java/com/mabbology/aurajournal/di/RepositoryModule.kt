@@ -10,6 +10,8 @@ import dagger.hilt.components.SingletonComponent
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
 import io.appwrite.services.Functions
+import io.appwrite.services.Realtime
+import io.appwrite.services.Storage
 import javax.inject.Singleton
 
 // Change from 'abstract class' to 'object' and remove @Binds
@@ -97,5 +99,19 @@ object RepositoryModule {
         dispatcherProvider: DispatcherProvider
     ): JournalAssignmentsRepository {
         return JournalAssignmentsRepositoryImpl(databases, account, assignmentDao, dispatcherProvider)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMessagesRepository(
+        databases: Databases,
+        account: Account,
+        storage: Storage,
+        functions: Functions,
+        realtime: Realtime,
+        messageDao: com.mabbology.aurajournal.data.local.MessageDao,
+        dispatcherProvider: DispatcherProvider
+    ): MessagesRepository {
+        return MessagesRepositoryImpl(databases, account, storage, functions, realtime, messageDao, dispatcherProvider)
     }
 }
