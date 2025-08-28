@@ -38,6 +38,7 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
 
 @Module
 @InstallIn(SingletonComponent::class)
+@Suppress("unused") // Suppress warnings as Hilt uses these functions at compile time
 object DatabaseModule {
 
     @Provides

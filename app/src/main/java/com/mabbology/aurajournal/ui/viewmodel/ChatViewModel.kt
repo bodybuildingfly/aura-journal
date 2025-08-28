@@ -30,7 +30,7 @@ data class ChatState(
 class ChatViewModel @Inject constructor(
     private val messagesRepository: MessagesRepository,
     private val userProfilesRepository: UserProfilesRepository,
-    private val savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ChatState())

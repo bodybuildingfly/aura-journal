@@ -122,7 +122,7 @@ class MessagesRepositoryImpl @Inject constructor(
                         permissions = listOf(Permission.read(Role.any()))
                     )
                     mediaUrl = fileResponse.id
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     uploadSuccessful = false
                     messageDao.upsertMessages(listOf(tempMessage.copy(status = "failed").toEntity()))
                 }
@@ -188,7 +188,7 @@ class MessagesRepositoryImpl @Inject constructor(
                     } else {
                         throw Exception("Function execution failed with status: ${execution.status}")
                     }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     messageDao.upsertMessages(listOf(tempMessage.copy(status = "failed").toEntity()))
                 }
             }

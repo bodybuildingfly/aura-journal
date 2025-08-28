@@ -58,7 +58,7 @@ class AuthRepositoryImpl @Inject constructor(
         try {
             try {
                 account.deleteSession("current")
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Ignore exceptions, as this will fail if no session exists, which is fine.
             }
 
