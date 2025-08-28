@@ -50,8 +50,8 @@ class PartnersRepositoryImpl @Inject constructor(
             val queries = listOf(
                 Query.or(
                     listOf(
-                        Query.equal("dominantId", user.id),
-                        Query.equal("submissiveId", user.id)
+                        Query.equal("dominantId", listOf(user.id)),
+                        Query.equal("submissiveId", listOf(user.id))
                     )
                 )
             )
@@ -130,7 +130,7 @@ class PartnersRepositoryImpl @Inject constructor(
                     body = jsonPayload
                 )
                 syncPartners()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 syncPartners() // Sync to restore state on failure
             }
         }

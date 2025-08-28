@@ -53,7 +53,7 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.JOURNAL_ASSIGNMENTS_COLLECTION_ID,
                 queries = listOf(
-                    Query.equal("submissiveId", user.id)
+                    Query.equal("submissiveId", listOf(user.id))
                 )
             )
             val assignments = response.documents.map { document ->

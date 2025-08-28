@@ -64,7 +64,7 @@ class MessagesRepositoryImpl @Inject constructor(
             val response = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.MESSAGES_COLLECTION_ID,
-                queries = listOf(Query.equal("partnershipId", partnershipId))
+                queries = listOf(Query.equal("partnershipId", listOf(partnershipId)))
             )
             val messages = response.documents.map {
                 val odt = OffsetDateTime.parse(it.data["timestamp"] as String)

@@ -31,7 +31,7 @@ class UserProfilesRepositoryImpl @Inject constructor(
         }
         try {
             val currentUser = account.get()
-            val queries = listOf(Query.equal("email", query))
+            val queries = listOf(Query.equal("email", listOf(query)))
 
             val response = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,

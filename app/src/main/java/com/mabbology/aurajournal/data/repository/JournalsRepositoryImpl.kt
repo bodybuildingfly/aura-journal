@@ -50,8 +50,8 @@ class JournalsRepositoryImpl @Inject constructor(
                 queries = listOf(
                     Query.or(
                         listOf(
-                            Query.equal("userId", user.id),
-                            Query.equal("partnerId", user.id)
+                            Query.equal("userId", listOf(user.id)),
+                            Query.equal("partnerId", listOf(user.id))
                         )
                     )
                 )

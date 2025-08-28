@@ -54,8 +54,8 @@ class NotesRepositoryImpl @Inject constructor(
                 queries = listOf(
                     Query.or(
                         listOf(
-                            Query.equal("ownerId", user.id),
-                            Query.equal("partnerId", user.id)
+                            Query.equal("ownerId", listOf(user.id)),
+                            Query.equal("partnerId", listOf(user.id))
                         )
                     )
                 )

@@ -58,7 +58,7 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
             val incomingResponse = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.PARTNER_REQUESTS_COLLECTION_ID,
-                queries = listOf(Query.equal("dominantId", user.id), Query.equal("status", "pending"))
+                queries = listOf(Query.equal("dominantId", listOf(user.id)), Query.equal("status", listOf("pending")))
             )
             Log.d(TAG, "syncRequests: Found ${incomingResponse.total} incoming requests from server.")
 
@@ -66,7 +66,7 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
             val outgoingResponse = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.PARTNER_REQUESTS_COLLECTION_ID,
-                queries = listOf(Query.equal("submissiveId", user.id), Query.equal("status", "pending"))
+                queries = listOf(Query.equal("submissiveId", listOf(user.id)), Query.equal("status", listOf("pending")))
             )
             Log.d(TAG, "syncRequests: Found ${outgoingResponse.total} outgoing requests from server.")
 
@@ -156,7 +156,7 @@ class PartnerRequestsRepositoryImpl @Inject constructor(
             try {
                 val payload = Gson().toJson(mapOf("requestId" to request.id, "dominantId" to request.dominantId, "submissiveId" to request.submissiveId))
                 functions.createExecution(functionId = AppwriteConstants.APPROVE_CONNECTION_REQUEST_FUNCTION_ID, body = payload)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 partnerRequestDao.upsertRequests(listOf(request.toEntity()))
             }
         }
