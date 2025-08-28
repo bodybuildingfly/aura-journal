@@ -165,7 +165,7 @@ class JournalsRepositoryImpl @Inject constructor(
                 } else {
                     throw Exception("Function execution failed with status: ${execution.status}")
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // If anything fails, remove the temporary local entry to avoid orphaned data.
                 deleteLocalJournalById(tempId)
             }
