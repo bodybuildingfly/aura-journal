@@ -1,6 +1,5 @@
 package com.mabbology.aurajournal.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,7 +19,6 @@ import com.mabbology.aurajournal.ui.viewmodel.ProfileViewModel
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
-import java.util.*
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
