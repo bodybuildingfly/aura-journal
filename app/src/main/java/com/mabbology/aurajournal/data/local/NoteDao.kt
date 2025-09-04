@@ -11,8 +11,13 @@ interface NoteDao {
     @Upsert
     suspend fun upsertNotes(notes: List<NoteEntity>)
 
-    @Query("SELECT * FROM notes ORDER BY id DESC")
-    fun getNotes(): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE partnerId IS NULL ORDER BY id DESC")
+    fun getPersonalNotes(): Flow<List<NoteEntity>>
+
+
+    @Query("SELECT * FROM notes WHERE (ownerId = :user1Id AND partnerId = :user2Id) OR (ownerId = :user2Id AND partnerId = :user1Id)")
+    fun getSharedNotes(user1Id: String, user2Id: String): Flow<List<NoteEntity>>
 
     // New function to observe a single note for reactive updates
     @Query("SELECT * FROM notes WHERE id = :id")

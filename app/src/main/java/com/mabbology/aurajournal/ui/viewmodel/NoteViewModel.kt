@@ -21,7 +21,10 @@ class NoteViewModel @Inject constructor(
 
     // --- BaseViewModel Overrides ---
 
-    override fun getItemsFlow(): Flow<List<Note>> = notesRepository.getNotes()
+    override fun getItemsFlow(scope: Scope): Flow<List<Note>> {
+        val partner = if (scope is Scope.PartnerScope) scope.partner else null
+        return notesRepository.getNotes(partner)
+    }
     override suspend fun syncItems(): DataResult<Unit> = notesRepository.syncNotes()
     override fun getItemStream(id: String): Flow<Note?> = notesRepository.getNoteStream(id)
     override suspend fun deleteItem(id: String): DataResult<Unit> = notesRepository.deleteNote(id)

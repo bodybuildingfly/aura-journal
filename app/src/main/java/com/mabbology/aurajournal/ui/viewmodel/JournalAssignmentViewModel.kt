@@ -6,10 +6,7 @@ import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.model.JournalAssignment
 import com.mabbology.aurajournal.domain.repository.JournalAssignmentsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -29,6 +26,12 @@ class JournalAssignmentViewModel @Inject constructor(
     private val _state = MutableStateFlow(JournalAssignmentState())
     val state: StateFlow<JournalAssignmentState> = _state
 
+    private val _scope = MutableStateFlow<Scope>(Scope.Personal)
+
+    fun setScope(scope: Scope) {
+        _scope.value = scope
+    }
+
     init {
         observeAssignments()
         syncAssignments()
@@ -36,8 +39,10 @@ class JournalAssignmentViewModel @Inject constructor(
 
     private fun observeAssignments() {
         viewModelScope.launch {
-            repository.getAssignments()
-                .catch { _ -> _state.update { it.copy(error = "Failed to load assignments from cache.") } }
+            _scope.flatMapLatest { scope ->
+                val partner = if (scope is Scope.PartnerScope) scope.partner else null
+                repository.getAssignments(partner)
+            }.catch { _ -> _state.update { it.copy(error = "Failed to load assignments from cache.") } }
                 .collect { assignments ->
                     val pending = assignments.filter { it.status == "pending" }.sortedByDescending { it.createdAt }
                     val completed = assignments.filter { it.status == "completed" }.sortedByDescending { it.createdAt }

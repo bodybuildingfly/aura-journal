@@ -35,8 +35,13 @@ class NotesRepositoryImpl @Inject constructor(
     private val dispatcherProvider: DispatcherProvider
 ) : NotesRepository {
 
-    override fun getNotes(): Flow<List<Note>> {
-        return noteDao.getNotes().map { entities ->
+    override fun getNotes(partner: com.mabbology.aurajournal.domain.model.Partner?): Flow<List<Note>> {
+        val flow = if (partner == null) {
+            noteDao.getPersonalNotes()
+        } else {
+            noteDao.getSharedNotes(partner.dominantId, partner.submissiveId)
+        }
+        return flow.map { entities ->
             entities.map { it.toNote() }
         }
     }

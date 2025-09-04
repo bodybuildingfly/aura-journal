@@ -20,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.Journal
 import com.mabbology.aurajournal.ui.viewmodel.JournalViewModel
+import com.mabbology.aurajournal.ui.viewmodel.Scope
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -28,8 +29,12 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun JournalListScreen(
     navController: NavController,
-    viewModel: JournalViewModel = hiltViewModel()
+    viewModel: JournalViewModel = hiltViewModel(),
+    scope: Scope
 ) {
+    LaunchedEffect(scope) {
+        viewModel.setScope(scope)
+    }
     val listState by viewModel.listState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()

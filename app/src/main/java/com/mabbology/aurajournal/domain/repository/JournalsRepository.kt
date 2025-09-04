@@ -2,10 +2,11 @@ package com.mabbology.aurajournal.domain.repository
 
 import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.model.Journal
+import com.mabbology.aurajournal.domain.model.Partner
 import kotlinx.coroutines.flow.Flow
 
 interface JournalsRepository {
-    fun getJournalEntries(): Flow<List<Journal>>
+    fun getJournalEntries(partner: Partner?): Flow<List<Journal>>
     fun getJournalEntryStream(id: String): Flow<Journal?>
     suspend fun getRemoteJournals(): DataResult<List<Journal>>
     suspend fun clearLocalJournals()

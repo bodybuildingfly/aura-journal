@@ -41,10 +41,11 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
     private val dispatcherProvider: DispatcherProvider
 ) : JournalAssignmentsRepository {
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    override fun getAssignments(): Flow<List<JournalAssignment>> {
-        return flow { emit(account.get().id) }.flatMapLatest { userId ->
-            assignmentDao.getAssignments(userId).map { entities ->
+    override fun getAssignments(partner: com.mabbology.aurajournal.domain.model.Partner?): Flow<List<JournalAssignment>> {
+        return if (partner == null) {
+            kotlinx.coroutines.flow.flowOf(emptyList())
+        } else {
+            assignmentDao.getAssignmentsForPartner(partner.dominantId, partner.submissiveId).map { entities ->
                 entities.map { it.toJournalAssignment() }
             }
         }
@@ -164,9 +165,8 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
     override suspend fun completeAssignment(assignmentId: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
         val userId = account.get().id
         // Optimistically remove the assignment from the local database
-        val originalAssignmentEntity = assignmentDao.getAssignments(userId)
-            .map { list -> list.firstOrNull { it.id == assignmentId } }
-            .first() ?: return@withContext DataResult.Error(Exception("Assignment not found locally"))
+        val originalAssignmentEntity = assignmentDao.getAssignmentById(assignmentId)
+            ?: return@withContext DataResult.Error(Exception("Assignment not found locally"))
 
         Log.d(TAG, "Optimistic Complete: Deleting local assignment with id $assignmentId")
         assignmentDao.deleteAssignmentById(assignmentId)

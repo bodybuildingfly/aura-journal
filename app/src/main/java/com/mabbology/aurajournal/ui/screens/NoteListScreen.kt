@@ -18,14 +18,19 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.Note
 import com.mabbology.aurajournal.ui.viewmodel.NoteViewModel
+import com.mabbology.aurajournal.ui.viewmodel.Scope
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NoteListScreen(
     navController: NavController,
-    viewModel: NoteViewModel
+    viewModel: NoteViewModel,
+    scope: Scope
 ) {
+    LaunchedEffect(scope) {
+        viewModel.setScope(scope)
+    }
     val listState by viewModel.listState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()

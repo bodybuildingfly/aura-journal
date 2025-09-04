@@ -4,11 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mabbology.aurajournal.core.util.DataResult
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -55,7 +51,7 @@ abstract class BaseViewModel<T : Any> : ViewModel() {
 
     // --- Abstract Functions (to be implemented by subclasses) ---
 
-    protected abstract fun getItemsFlow(): Flow<List<T>>
+    protected abstract fun getItemsFlow(scope: Scope): Flow<List<T>>
     protected abstract suspend fun syncItems(): DataResult<Unit>
     protected abstract fun getItemStream(id: String): Flow<T?>
     protected abstract suspend fun deleteItem(id: String): DataResult<Unit>
@@ -122,11 +118,21 @@ abstract class BaseViewModel<T : Any> : ViewModel() {
         _listState.update { it.copy(error = null) }
     }
 
+    private val _scope = MutableStateFlow<Scope>(Scope.Personal)
+
+    fun setScope(scope: Scope) {
+        _scope.value = scope
+    }
+
     private fun observeItems() {
         viewModelScope.launch {
-            getItemsFlow()
-                .catch { _ -> _listState.update { it.copy(error = "Failed to load from cache.") } }
-                .collect { items -> _listState.update { it.copy(items = items) } }
+            _scope.flatMapLatest { scope ->
+                getItemsFlow(scope)
+            }.catch {
+                _listState.update { it.copy(error = "Failed to load from cache.") }
+            }.collect { items ->
+                _listState.update { it.copy(items = items) }
+            }
         }
     }
 }

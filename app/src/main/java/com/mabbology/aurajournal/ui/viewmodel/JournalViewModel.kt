@@ -22,7 +22,10 @@ class JournalViewModel @Inject constructor(
 
     // --- BaseViewModel Overrides ---
 
-    override fun getItemsFlow(): Flow<List<Journal>> = journalUseCases.getJournals()
+    override fun getItemsFlow(scope: Scope): Flow<List<Journal>> {
+        val partner = if (scope is Scope.PartnerScope) scope.partner else null
+        return journalUseCases.getJournals(partner)
+    }
     override suspend fun syncItems(): DataResult<Unit> = journalUseCases.syncJournals()
     override fun getItemStream(id: String): Flow<Journal?> = journalUseCases.getJournal(id)
     override suspend fun deleteItem(id: String): DataResult<Unit> = journalUseCases.deleteJournal(id)

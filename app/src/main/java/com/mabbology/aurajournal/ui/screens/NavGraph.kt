@@ -116,9 +116,6 @@ fun NavGraph(
         }
 
         // --- Assignment Routes ---
-        composable("assignmentList") {
-            AssignmentListScreen(navController = navController)
-        }
         composable(
             "createAssignment/{submissiveId}",
             arguments = listOf(navArgument("submissiveId") { type = NavType.StringType })

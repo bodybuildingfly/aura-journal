@@ -31,8 +31,13 @@ class JournalsRepositoryImpl @Inject constructor(
     private val dispatcherProvider: DispatcherProvider
 ) : JournalsRepository {
 
-    override fun getJournalEntries(): Flow<List<Journal>> {
-        return journalDao.getJournals().map { entities ->
+    override fun getJournalEntries(partner: com.mabbology.aurajournal.domain.model.Partner?): Flow<List<Journal>> {
+        val flow = if (partner == null) {
+            journalDao.getPersonalJournals()
+        } else {
+            journalDao.getSharedJournals(partner.dominantId, partner.submissiveId)
+        }
+        return flow.map { entities ->
             entities.map { it.toJournal() }
         }
     }

@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.mabbology.aurajournal.domain.model.JournalAssignment
+import com.mabbology.aurajournal.ui.viewmodel.Scope
 import com.mabbology.aurajournal.ui.viewmodel.JournalAssignmentViewModel
 import com.mabbology.aurajournal.ui.viewmodel.PartnersViewModel
 import com.mabbology.aurajournal.ui.viewmodel.ProfileViewModel
@@ -27,8 +28,12 @@ fun AssignmentListScreen(
     navController: NavController,
     viewModel: JournalAssignmentViewModel = hiltViewModel(),
     partnersViewModel: PartnersViewModel = hiltViewModel(),
-    profileViewModel: ProfileViewModel = hiltViewModel()
+    profileViewModel: ProfileViewModel = hiltViewModel(),
+    scope: Scope
 ) {
+    LaunchedEffect(scope) {
+        viewModel.setScope(scope)
+    }
     val state by viewModel.state.collectAsState()
     val partnersState by partnersViewModel.state.collectAsState()
     val profileState by profileViewModel.profileState.collectAsState()
