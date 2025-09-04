@@ -90,7 +90,7 @@ fun NavGraph(
             )
         }
         composable(
-            "noteEditor/{noteId}",
+            "noteEditor?noteId={noteId}",
             arguments = listOf(navArgument("noteId") {
                 type = NavType.StringType
                 nullable = true
