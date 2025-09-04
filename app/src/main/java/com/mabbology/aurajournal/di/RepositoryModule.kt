@@ -95,10 +95,11 @@ object RepositoryModule {
     fun provideJournalAssignmentsRepository(
         databases: Databases,
         account: Account,
+        functions: Functions,
         assignmentDao: com.mabbology.aurajournal.data.local.JournalAssignmentDao,
         dispatcherProvider: DispatcherProvider
     ): JournalAssignmentsRepository {
-        return JournalAssignmentsRepositoryImpl(databases, account, assignmentDao, dispatcherProvider)
+        return JournalAssignmentsRepositoryImpl(databases, account, functions, assignmentDao, dispatcherProvider)
     }
 
     @Provides

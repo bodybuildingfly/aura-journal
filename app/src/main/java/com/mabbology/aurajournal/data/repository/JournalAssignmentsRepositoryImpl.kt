@@ -8,12 +8,15 @@ import com.mabbology.aurajournal.data.local.toEntity
 import com.mabbology.aurajournal.data.local.toJournalAssignment
 import com.mabbology.aurajournal.di.AppwriteConstants
 import com.mabbology.aurajournal.domain.model.JournalAssignment
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.mabbology.aurajournal.domain.repository.JournalAssignmentsRepository
 import io.appwrite.Permission
 import io.appwrite.Query
 import io.appwrite.Role
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
+import io.appwrite.services.Functions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +36,7 @@ private const val TAG = "JournalAssignmentsRepo"
 class JournalAssignmentsRepositoryImpl @Inject constructor(
     private val databases: Databases,
     private val account: Account,
+    private val functions: Functions,
     private val assignmentDao: JournalAssignmentDao,
     private val dispatcherProvider: DispatcherProvider
 ) : JournalAssignmentsRepository {
@@ -95,27 +99,60 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
 
         CoroutineScope(dispatcherProvider.io).launch {
             try {
-                val newDocument = databases.createDocument(
-                    databaseId = AppwriteConstants.DATABASE_ID,
-                    collectionId = AppwriteConstants.JOURNAL_ASSIGNMENTS_COLLECTION_ID,
-                    documentId = "unique()",
-                    data = mapOf(
-                        "dominantId" to user.id,
-                        "submissiveId" to submissiveId,
-                        "prompt" to prompt,
-                        "status" to "pending"
-                    ),
-                    permissions = listOf(
-                        Permission.read(Role.user(user.id)),
-                        Permission.read(Role.user(submissiveId)),
-                        Permission.update(Role.user(submissiveId))
-                    )
+                val documentData = mapOf(
+                    "dominantId" to user.id,
+                    "submissiveId" to submissiveId,
+                    "prompt" to prompt,
+                    "status" to "pending"
                 )
-                val odt = OffsetDateTime.parse(newDocument.createdAt)
-                val finalCreatedAt = Date.from(odt.toInstant())
-                val finalAssignment = newAssignment.copy(id = newDocument.id, createdAt = finalCreatedAt)
-                assignmentDao.deleteAssignmentById(tempId)
-                assignmentDao.upsertAssignments(listOf(finalAssignment.toEntity()))
+
+                val permissions = listOf(
+                    "read(\"user:${user.id}\")",
+                    "update(\"user:${user.id}\")",
+                    "delete(\"user:${user.id}\")",
+                    "read(\"user:$submissiveId\")",
+                    "update(\"user:$submissiveId\")"
+                )
+
+                val payload = mapOf(
+                    "databaseId" to AppwriteConstants.DATABASE_ID,
+                    "collectionId" to AppwriteConstants.JOURNAL_ASSIGNMENTS_COLLECTION_ID,
+                    "documentData" to documentData,
+                    "permissions" to permissions
+                )
+
+                val execution = functions.createExecution(
+                    functionId = AppwriteConstants.CREATE_DOCUMENT_FUNCTION_ID,
+                    body = Gson().toJson(payload)
+                )
+
+                if (execution.status == "completed") {
+                    val responseBody = execution.responseBody
+                    val responseType = object : TypeToken<Map<String, Any>>() {}.type
+                    val responseMap: Map<String, Any> = Gson().fromJson(responseBody, responseType)
+
+                    if (responseMap["success"] == true) {
+                        @Suppress("UNCHECKED_CAST")
+                        val documentMap = responseMap["document"] as? Map<String, Any>
+                        val newDocumentId = documentMap?.get("\$id") as? String
+                        val newDocumentCreatedAt = documentMap?.get("\$createdAt") as? String
+
+                        if (newDocumentId != null && newDocumentCreatedAt != null) {
+                            val odt = OffsetDateTime.parse(newDocumentCreatedAt)
+                            val finalCreatedAt = Date.from(odt.toInstant())
+                            val finalAssignment = newAssignment.copy(id = newDocumentId, createdAt = finalCreatedAt)
+                            assignmentDao.deleteAssignmentById(tempId)
+                            assignmentDao.upsertAssignments(listOf(finalAssignment.toEntity()))
+                        } else {
+                            throw Exception("Server function response is missing document details.")
+                        }
+                    } else {
+                        val message = responseMap["message"] as? String ?: "Unknown error from server function"
+                        throw Exception("Server function failed: $message")
+                    }
+                } else {
+                    throw Exception("Function execution failed with status: ${execution.status}")
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Remote create failed. Rolling back local insert for $tempId. Error: ${e.message}")
                 assignmentDao.deleteAssignmentById(tempId)
