@@ -46,9 +46,12 @@ fun JournalEditorScreen(
     val isSubmissive = firstPartner?.submissiveId == profileState.userId
     val partnerId = if (isSubmissive) firstPartner?.dominantId else firstPartner?.submissiveId
 
-    LaunchedEffect(journalId) {
+    LaunchedEffect(journalId, assignmentId) {
         if (journalId != null) {
             viewModel.observeItemById(journalId)
+        }
+        if (assignmentId != null) {
+            isShared = true
         }
     }
 
@@ -130,6 +133,7 @@ fun JournalEditorScreen(
                 ShareWithPartnerRow(
                     isShared = isShared,
                     onCheckedChange = { isShared = it },
+                    enabled = assignmentId == null,
                     modifier = Modifier.align(Alignment.Start)
                 )
             }

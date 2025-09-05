@@ -5,7 +5,6 @@ import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.model.Journal
 import com.mabbology.aurajournal.domain.use_case.journal.JournalUseCases
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -38,10 +37,6 @@ class JournalViewModel @Inject constructor(
             when (val result = journalUseCases.createJournal(title, content, type, partnerId, mood)) {
                 is DataResult.Success -> {
                     _editorState.value = EditorState(isSaveSuccess = true)
-                    if (type == "shared") {
-                        delay(1000)
-                        sync()
-                    }
                 }
                 is DataResult.Error -> {
                     _editorState.value = EditorState(error = result.exception.message, isSaving = false)
@@ -56,8 +51,6 @@ class JournalViewModel @Inject constructor(
             when (val result = journalUseCases.completeAssignmentAndCreateJournal(assignmentId, title, content, partnerId, mood)) {
                 is DataResult.Success -> {
                     _editorState.value = EditorState(isSaveSuccess = true)
-                    delay(1000)
-                    sync()
                 }
                 is DataResult.Error -> {
                     _editorState.value = EditorState(error = result.exception.message, isSaving = false)

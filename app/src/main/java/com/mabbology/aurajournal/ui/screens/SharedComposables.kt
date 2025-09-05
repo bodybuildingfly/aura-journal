@@ -14,13 +14,14 @@ import androidx.compose.ui.unit.dp
 fun ShareWithPartnerRow(
     isShared: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
     ) {
-        Switch(checked = isShared, onCheckedChange = onCheckedChange)
+        Switch(checked = isShared, onCheckedChange = onCheckedChange, enabled = enabled)
         Spacer(modifier = Modifier.width(8.dp))
         Text("Share with partner")
     }

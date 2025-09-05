@@ -38,15 +38,43 @@ fun AssignmentListScreen(
     val partnersState by partnersViewModel.state.collectAsState()
     val profileState by profileViewModel.profileState.collectAsState()
 
-    val isDominant = partnersState.partners.any { it.dominantId == profileState.userId }
+    // Determine the user's role based on the current scope
+    val (isDominantInScope, currentPartner) = remember(scope, partnersState.partners, profileState.userId) {
+        val partnerInScope = (scope as? Scope.PartnerScope)?.partner
+        val isDominant = partnerInScope?.dominantId == profileState.userId
+        (isDominant to partnerInScope)
+    }
+
     val hasPartner = partnersState.partners.isNotEmpty()
+
+    // Filter assignments based on the user's role in the current scope
+    val (pendingAssignments, completedAssignments) = remember(state.pendingAssignments, state.completedAssignments, profileState.userId, currentPartner, isDominantInScope) {
+        val userId = profileState.userId
+        if (currentPartner == null) {
+            // Personal scope: user is always the submissive in this context
+            state.pendingAssignments.filter { it.submissiveId == userId } to state.completedAssignments.filter { it.submissiveId == userId }
+        } else {
+            if (isDominantInScope) {
+                // Dominant's view: show assignments they created for the partner
+                val partnerId = currentPartner.submissiveId
+                state.pendingAssignments.filter { it.dominantId == userId && it.submissiveId == partnerId } to
+                        state.completedAssignments.filter { it.dominantId == userId && it.submissiveId == partnerId }
+            } else {
+                // Submissive's view: show assignments they received from the partner
+                val partnerId = currentPartner.dominantId
+                state.pendingAssignments.filter { it.dominantId == partnerId && it.submissiveId == userId } to
+                        state.completedAssignments.filter { it.dominantId == partnerId && it.submissiveId == userId }
+            }
+        }
+    }
 
     Scaffold(
         floatingActionButton = {
-            if (isDominant) {
+            if (isDominantInScope) {
                 FloatingActionButton(onClick = {
-                    val submissiveId = partnersState.partners.first { it.dominantId == profileState.userId }.submissiveId
-                    navController.navigate("createAssignment/$submissiveId")
+                    currentPartner?.submissiveId?.let { subId ->
+                        navController.navigate("createAssignment/$subId")
+                    }
                 }) {
                     Icon(Icons.Default.Add, contentDescription = "Create Assignment")
                 }
@@ -54,42 +82,48 @@ fun AssignmentListScreen(
         }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            if (!hasPartner) {
+            if (!hasPartner && scope is Scope.Personal) {
                 Text("You need a partner to use assignments.", modifier = Modifier.align(Alignment.Center))
-            } else if (state.pendingAssignments.isEmpty() && state.completedAssignments.isEmpty() && !state.isLoading) {
-                Text("You have no assignments.", modifier = Modifier.align(Alignment.Center))
+            } else if (pendingAssignments.isEmpty() && completedAssignments.isEmpty() && !state.isLoading) {
+                Text("No assignments to show.", modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (state.pendingAssignments.isNotEmpty()) {
+                    if (pendingAssignments.isNotEmpty()) {
                         item {
-                            Text("New Assignments", style = MaterialTheme.typography.titleMedium)
+                            Text("Pending", style = MaterialTheme.typography.titleMedium)
                             Spacer(modifier = Modifier.height(8.dp))
                         }
-                        items(state.pendingAssignments) { assignment ->
+                        items(pendingAssignments) { assignment ->
                             AssignmentCard(
                                 assignment = assignment,
                                 onClick = {
-                                    val encodedPrompt = URLEncoder.encode(assignment.prompt, StandardCharsets.UTF_8.toString())
-                                    navController.navigate("journalEditor?assignmentId=${assignment.id}&prompt=${encodedPrompt}")
+                                    // A submissive clicks to complete the assignment
+                                    if (assignment.submissiveId == profileState.userId) {
+                                        val encodedPrompt = URLEncoder.encode(assignment.prompt, StandardCharsets.UTF_8.toString())
+                                        navController.navigate("journalEditor?assignmentId=${assignment.id}&prompt=${encodedPrompt}")
+                                    }
+                                    // A dominant clicking a pending assignment does nothing for now
                                 }
                             )
                         }
                     }
 
-                    if (state.completedAssignments.isNotEmpty()) {
+                    if (completedAssignments.isNotEmpty()) {
                         item {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-                            Text("Completed Assignments", style = MaterialTheme.typography.titleMedium)
+                            if (pendingAssignments.isNotEmpty()) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                            }
+                            Text("Completed", style = MaterialTheme.typography.titleMedium)
                             Spacer(modifier = Modifier.height(8.dp))
                         }
-                        items(state.completedAssignments) { assignment ->
+                        items(completedAssignments) { assignment ->
                             AssignmentCard(
                                 assignment = assignment,
                                 onClick = {
-                                    // Navigate to the journal entry
+                                    // Navigate to the journal entry for the completed assignment
                                     assignment.journalId?.let {
                                         navController.navigate("journalView/$it")
                                     }

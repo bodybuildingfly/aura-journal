@@ -12,8 +12,8 @@ interface JournalAssignmentDao {
     suspend fun upsertAssignments(assignments: List<JournalAssignmentEntity>)
 
 
-    @Query("SELECT * FROM journal_assignments WHERE dominantId = :dominantId AND submissiveId = :submissiveId")
-    fun getAssignmentsForPartner(dominantId: String, submissiveId: String): Flow<List<JournalAssignmentEntity>>
+    @Query("SELECT * FROM journal_assignments WHERE (dominantId = :userId1 AND submissiveId = :userId2) OR (dominantId = :userId2 AND submissiveId = :userId1)")
+    fun getAssignmentsBetweenUsers(userId1: String, userId2: String): Flow<List<JournalAssignmentEntity>>
 
     @Query("DELETE FROM journal_assignments")
     suspend fun clearAssignments()

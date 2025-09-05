@@ -11,18 +11,12 @@ import com.mabbology.aurajournal.domain.model.JournalAssignment
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.mabbology.aurajournal.domain.repository.JournalAssignmentsRepository
-import io.appwrite.Permission
 import io.appwrite.Query
-import io.appwrite.Role
 import io.appwrite.services.Account
 import io.appwrite.services.Databases
 import io.appwrite.services.Functions
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -45,7 +39,7 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
         return if (partner == null) {
             kotlinx.coroutines.flow.flowOf(emptyList())
         } else {
-            assignmentDao.getAssignmentsForPartner(partner.dominantId, partner.submissiveId).map { entities ->
+            assignmentDao.getAssignmentsBetweenUsers(partner.dominantId, partner.submissiveId).map { entities ->
                 entities.map { it.toJournalAssignment() }
             }
         }
@@ -54,14 +48,25 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
     override suspend fun syncAssignments(): DataResult<Unit> = withContext(dispatcherProvider.io) {
         try {
             val user = account.get()
-            val response = databases.listDocuments(
+
+            // Fetch assignments where the user is the submissive
+            val submissiveAssignmentsResponse = databases.listDocuments(
                 databaseId = AppwriteConstants.DATABASE_ID,
                 collectionId = AppwriteConstants.JOURNAL_ASSIGNMENTS_COLLECTION_ID,
-                queries = listOf(
-                    Query.equal("submissiveId", listOf(user.id))
-                )
+                queries = listOf(Query.equal("submissiveId", user.id))
             )
-            val assignments = response.documents.map { document ->
+
+            // Fetch assignments where the user is the dominant
+            val dominantAssignmentsResponse = databases.listDocuments(
+                databaseId = AppwriteConstants.DATABASE_ID,
+                collectionId = AppwriteConstants.JOURNAL_ASSIGNMENTS_COLLECTION_ID,
+                queries = listOf(Query.equal("dominantId", user.id))
+            )
+
+            // Combine and deduplicate the results
+            val allDocuments = (submissiveAssignmentsResponse.documents + dominantAssignmentsResponse.documents).distinctBy { it.id }
+
+            val assignments = allDocuments.map { document ->
                 val odt = OffsetDateTime.parse(document.createdAt)
                 val createdAt = Date.from(odt.toInstant())
                 JournalAssignment(
@@ -163,7 +168,6 @@ class JournalAssignmentsRepositoryImpl @Inject constructor(
     }
 
     override suspend fun completeAssignment(assignmentId: String): DataResult<Unit> = withContext(dispatcherProvider.io) {
-        val userId = account.get().id
         // Optimistically remove the assignment from the local database
         val originalAssignmentEntity = assignmentDao.getAssignmentById(assignmentId)
             ?: return@withContext DataResult.Error(Exception("Assignment not found locally"))
