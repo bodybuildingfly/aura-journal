@@ -3,6 +3,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mabbology.aurajournal.core.util.DataResult
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -13,7 +14,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 data class ListState<T>(
     val isLoading: Boolean = false,
     val items: List<T> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    val currentUserId: String? = null
 )
 
 data class EditorState(
@@ -124,6 +126,7 @@ abstract class BaseViewModel<T : Any> : ViewModel() {
         _scope.value = scope
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun observeItems() {
         viewModelScope.launch {
             _scope.flatMapLatest { scope ->

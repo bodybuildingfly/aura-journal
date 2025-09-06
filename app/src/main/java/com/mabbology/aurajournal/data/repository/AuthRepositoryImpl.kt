@@ -14,6 +14,14 @@ class AuthRepositoryImpl @Inject constructor(
     private val dispatcherProvider: DispatcherProvider
 ) : AuthRepository {
 
+    override suspend fun getCurrentUserId(): String? = withContext(dispatcherProvider.io) {
+        try {
+            account.get().id
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     override suspend fun checkSessionStatus(): DataResult<Unit> = withContext(dispatcherProvider.io) {
         try {
             account.get()

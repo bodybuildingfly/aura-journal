@@ -3,6 +3,7 @@ package com.mabbology.aurajournal.ui.viewmodel
 import androidx.lifecycle.viewModelScope
 import com.mabbology.aurajournal.core.util.DataResult
 import com.mabbology.aurajournal.domain.model.Journal
+import com.mabbology.aurajournal.domain.repository.AuthRepository
 import com.mabbology.aurajournal.domain.use_case.journal.JournalUseCases
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
@@ -12,11 +13,16 @@ import javax.inject.Inject
 
 @HiltViewModel
 class JournalViewModel @Inject constructor(
-    private val journalUseCases: JournalUseCases
+    private val journalUseCases: JournalUseCases,
+    private val authRepository: AuthRepository
 ) : BaseViewModel<Journal>() {
 
     init {
         initialize()
+        viewModelScope.launch {
+            val userId = authRepository.getCurrentUserId()
+            _listState.update { it.copy(currentUserId = userId) }
+        }
     }
 
     // --- BaseViewModel Overrides ---
